@@ -1,0 +1,9 @@
+langchain-core==0.3.35
+openai==1.58.1
+python-dotenv==1.0.1
+asana==5.0.0
+langchain==0.3.18
+langchain-anthropic==0.3.6
+langchain-community==0.3.16
+langchain-openai==0.3.6
+streamlit==1.36.0
