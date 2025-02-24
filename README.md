@@ -1,2 +1,14 @@
-A GPT chatbot that interacts with outside world to create tasks for us 
+## Web App Agent for Infoundr 
+
+1. Install requirements:
+```bash
+pip install -r requirements.txt
+```
+
+2. Run the app:
+```bash
+streamlit run agent-version1.py
+```
+
+
 
