@@ -1,34 +1,26 @@
-from abc import ABC, abstractmethod
-
-class ProjectManagementIntegration(ABC):
-    """Base class for all project management tool integrations."""
+class ProjectManagementIntegration:
+    """Base class for all project management integrations."""
     
-    @abstractmethod
     def authenticate(self):
-        """Authenticate with the PM service."""
-        pass
+        """Authenticate with the project management service."""
+        raise NotImplementedError("Subclasses must implement this method")
     
-    @abstractmethod
     def create_task(self, title, description, assignee=None, due_date=None, priority=None):
-        """Create a new task/issue/card."""
-        pass
+        """Create a new task."""
+        raise NotImplementedError("Subclasses must implement this method")
     
-    @abstractmethod
     def update_task(self, task_id, **kwargs):
         """Update an existing task."""
-        pass
+        raise NotImplementedError("Subclasses must implement this method")
     
-    @abstractmethod
     def get_task(self, task_id):
         """Get task details."""
-        pass
+        raise NotImplementedError("Subclasses must implement this method")
     
-    @abstractmethod
     def get_tasks(self, filters=None):
-        """Get multiple tasks based on filters."""
-        pass
+        """Get tasks based on filters."""
+        raise NotImplementedError("Subclasses must implement this method")
     
-    @abstractmethod
     def create_comment(self, task_id, comment):
         """Add a comment to a task."""
-        pass
+        raise NotImplementedError("Subclasses must implement this method")

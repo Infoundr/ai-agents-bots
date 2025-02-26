@@ -10,21 +10,66 @@ from langchain_core.tools import tool
 from langchain_openai import ChatOpenAI
 from langchain_anthropic import ChatAnthropic
 from langchain_core.messages import SystemMessage, HumanMessage, ToolMessage
+import streamlit as st
 
-load_dotenv()
+def setup_authentication():
+    """Set up authentication for the application."""
+    if "authenticated" not in st.session_state:
+        st.session_state.authenticated = False
+        st.session_state.user_id = None
+    
+    # For simplicity in development, auto-authenticate with a test user
+    # In production, replace this with real authentication
+    if not st.session_state.authenticated:
+        with st.form("login_form"):
+            email = st.text_input("Email")
+            password = st.text_input("Password", type="password")
+            submit = st.form_submit_button("Login")
+            
+            if submit:
+                user_id = authenticate_user(email, password)
+                if user_id:
+                    st.session_state.authenticated = True
+                    st.session_state.user_id = user_id
+                    st.experimental_rerun()
+
+def authenticate_user(email, password):
+    """
+    Authenticate a user with email and password.
+    
+    Args:
+        email (str): User's email address
+        password (str): User's password
+        
+    Returns:
+        str: User ID if authentication successful, None otherwise
+    """
+    # This is a simple example - replace with actual authentication logic
+    # For demo purposes only
+    if email and password:
+        # Simple validation - in reality you would check against a database
+        if "@" in email and len(password) >= 6:
+            # Generate a simple user_id from the email
+            # In a real app, you'd get this from your database
+            user_id = str(hash(email) % 10000)
+            return user_id
+    
+    # Authentication failed
+    st.error("Invalid email or password")
+    return None
 
 class AsanaIntegration(ProjectManagementIntegration):
-    def __init__(self, access_token=None, workspace_gid=None):
+    def __init__(self, access_token=None, workspace_gid=None, project_gid=None):
         self.access_token = access_token or os.environ.get("ASANA_ACCESS_TOKEN")
         self.workspace_gid = workspace_gid or os.environ.get("ASANA_WORKSPACE_GID")
-        self.project_gid = os.getenv("ASANA_PROJECT_ID", "")
+        # Use the provided project_gid first, fall back to env vars only if not provided
+        self.project_gid = project_gid or os.environ.get("ASANA_PROJECT_ID") or os.environ.get("ASANA_PROJECT_GID", "")
         self.model = os.environ.get('OPENAI_MODEL', 'gpt-4o-mini')
         
         # Set up Asana API client
         self.configuration = None
         self.api_client = None
         self.tasks_api = None
-        self.client = None  # For compatibility with previous implementation
         
         # Initialize API clients
         self.authenticate()
@@ -36,9 +81,6 @@ class AsanaIntegration(ProjectManagementIntegration):
         self.configuration.access_token = self.access_token
         self.api_client = asana.ApiClient(self.configuration)
         self.tasks_api = asana.TasksApi(self.api_client)
-        
-        # Remove the old client initialization that's causing the error
-        # self.client = asana.Client.access_token(self.access_token)
         
         return self.api_client is not None
         
@@ -191,37 +233,56 @@ class AsanaIntegration(ProjectManagementIntegration):
     def process_natural_language_request(self, text):
         """Process a natural language request to create tasks using LangChain."""
         print(f"Processing natural language request: {text}")
-    
+
         # Ensure project_gid is properly set
         if not self.project_gid:
-            raise ValueError("Asana project ID is not set. Please check your ASANA_PROJECT_ID or ASANA_PROJECT_GID environment variable.")
-    
+            # Try to get a project from the workspace if we have one
+            if self.workspace_gid:
+                try:
+                    # Create projects API
+                    projects_api = asana.ProjectsApi(self.api_client)
+                    # Get projects in workspace
+                    projects = list(projects_api.get_projects({
+                        'workspace': self.workspace_gid,
+                        'limit': 1  # Just get the first one
+                    }))
+                
+                    if projects:
+                        self.project_gid = projects[0]['gid']
+                        print(f"Found and using project: {projects[0]['name']} ({self.project_gid})")
+                except Exception as e:
+                    print(f"Error finding projects: {e}")
+                
+        # If still no project_gid, raise error
+        if not self.project_gid:
+            raise ValueError("Asana project ID is not set. Please specify a project when connecting to Asana.")
+
         print(f"Using Asana project_gid: {self.project_gid}")
-    
+
         # Create the initial messages
         messages = [
             SystemMessage(content=f"""You are the Infoundr Task AI Assistant, a helpful assistant specialized in task management for entrepreneurs and startup teams.
-        
+    
             You help users create and manage tasks in Asana using natural language. Today's date is {datetime.now().date()}.
-        
+    
             When users describe tasks, you should identify key details like:
             - Task name/title
             - Due date
             - Description/details
             - Subtasks (if applicable)
-        
+    
             Be friendly, professional, and focused on helping entrepreneurs manage their workloads efficiently.
             """)
         ]
-    
+
         # Add the user's request
         messages.append(HumanMessage(content=text))
         print(f"Messages after adding user request: {messages}")
-    
+
         # Create a standalone function that directly calls the Asana API
         @tool
         def create_task(task_name, due_on="today", description=None, assignee=None, 
-                     dependencies=None, custom_fields=None, subtasks=None):
+                 dependencies=None, custom_fields=None, subtasks=None):
             """Creates a task in Asana with enhanced capabilities."""
             if due_on == "today":
                 due_on = str(datetime.now().date())
@@ -241,7 +302,7 @@ class AsanaIntegration(ProjectManagementIntegration):
                     "projects": [project_id]
                 }
             }
-        
+    
             # Add optional fields if provided
             if description:
                 task_body["data"]["notes"] = description
@@ -255,7 +316,7 @@ class AsanaIntegration(ProjectManagementIntegration):
             try:
                 # Print the task body being sent to the API for debugging
                 print(f"Sending task body to Asana API: {json.dumps(task_body)}")
-            
+        
                 # Create main task
                 api_response = self.tasks_api.create_task(task_body, {})
                 task_gid = api_response['gid']
@@ -271,7 +332,7 @@ class AsanaIntegration(ProjectManagementIntegration):
                             subtask_name = subtask
                         else:
                             subtask_name = "Subtask"
-                        
+                    
                         subtask_body = {
                             "data": {
                                 "name": subtask_name,
@@ -289,7 +350,7 @@ class AsanaIntegration(ProjectManagementIntegration):
             except Exception as e:
                 print(f"Unexpected error creating task: {e}")
                 return f"Error creating task: {str(e)}"
-    
+
         # Define the tools using the wrapper function instead of the class method
         tools = [create_task]
         print(f"Tools: {tools}")
@@ -301,7 +362,7 @@ class AsanaIntegration(ProjectManagementIntegration):
         else:
             print(f"Using Anthropic model: {self.model}")
             asana_chatbot = ChatAnthropic(model=self.model)
-    
+
         asana_chatbot_with_tools = asana_chatbot.bind_tools(tools)
         print(f"Chatbot with tools: {asana_chatbot_with_tools}")
 
@@ -310,27 +371,27 @@ class AsanaIntegration(ProjectManagementIntegration):
             # First message to get tool calls
             ai_response = asana_chatbot_with_tools.invoke(messages)
             print(f"AI response: {ai_response}")
-        
+    
             # Check if there are tool calls
             if ai_response.tool_calls:
                 print(f"Tool calls detected: {len(ai_response.tool_calls)}")
-            
+        
                 # Add the AI's response to the conversation
                 messages.append(ai_response)
-            
+        
                 # Process all tool calls
                 for tool_call in ai_response.tool_calls:
                     tool_call_id = tool_call["id"]
                     func_name = tool_call["name"]
                     args = tool_call["args"]
-                
+            
                     print(f"Processing tool call: {func_name} with args: {args}")
-                
+            
                     # Execute the tool
                     try:
                         tool_result = create_task.invoke(args)
                         print(f"Tool result: {tool_result}")
-                    
+                
                         # Add tool result to conversation
                         messages.append(ToolMessage(
                             content=tool_result,
@@ -343,11 +404,11 @@ class AsanaIntegration(ProjectManagementIntegration):
                             content=f"Error: {str(tool_error)}",
                             tool_call_id=tool_call_id,
                         ))
-            
+        
                 # Get final response after tool execution
                 final_response = asana_chatbot.invoke(messages)
                 print(f"Final response: {final_response.content}")
-            
+        
                 # Parse the task info from the tool results
                 task_info = {}
                 for msg in messages:
@@ -362,19 +423,19 @@ class AsanaIntegration(ProjectManagementIntegration):
                             break  # Just get the first successful task
                         except:
                             continue
-            
+        
                 return {
                     'response': final_response.content,
                     'task': task_info
                 }
-            
+        
             else:
                 # No tool calls, just return the response
                 return {
                     'response': ai_response.content,
                     'task': {}
                 }
-            
+        
         except Exception as e:
             print(f"Error in process_natural_language_request: {e}")            
             raise e

@@ -1,32 +1,52 @@
-# from .jira_integration import JiraIntegration
+import os
+from dotenv import load_dotenv
 from .asana_integration import AsanaIntegration
-# from .trello_integration import TrelloIntegration
+from .user_credentials import UserCredentialStore
 
 class IntegrationManager:
     """Manages all integrations for the bot."""
     
-    def __init__(self):
+    def __init__(self, user_id=None):
+        self.user_id = user_id
         self.integrations = {}
         
-    def register_integration(self, name, integration):
-        """Register a new integration."""
-        self.integrations[name] = integration
-        
-    def get_integration(self, name):
-        """Get an integration by name."""
-        return self.integrations.get(name)
-        
     def setup_default_integrations(self):
-        """Set up default integrations from environment variables."""
-        # Check if Jira is configured
-        import os
-        # if os.environ.get("JIRA_URL") and os.environ.get("JIRA_USERNAME") and os.environ.get("JIRA_API_TOKEN"):
-        #     self.register_integration("jira", JiraIntegration())
+        """Set up integrations based on environment variables."""
+        # Check for Asana configuration
+        if os.environ.get("ASANA_ACCESS_TOKEN") and (
+            os.environ.get("ASANA_WORKSPACE_GID") or 
+            os.environ.get("ASANA_PROJECT_ID") or 
+            os.environ.get("ASANA_PROJECT_GID")
+        ):
+            self.integrations["asana"] = AsanaIntegration(
+                access_token=os.environ.get("ASANA_ACCESS_TOKEN"),
+                workspace_gid=os.environ.get("ASANA_WORKSPACE_GID"),
+                project_gid=os.environ.get("ASANA_PROJECT_ID") or os.environ.get("ASANA_PROJECT_GID")
+            )
             
-        # Check if Asana is configured
-        if os.environ.get("ASANA_ACCESS_TOKEN") and os.environ.get("ASANA_WORKSPACE_GID"):
-            self.register_integration("asana", AsanaIntegration())
+    def setup_user_integrations(self):
+        """Set up integrations based on user credentials from database."""
+        if not self.user_id:
+            return
+        
+        # Load credentials from session storage
+        store = UserCredentialStore()
+        asana_creds = store.get_asana_credentials(self.user_id)
+        
+        if asana_creds:
+            # Get the first project ID from the project_gids dict, if available
+            project_gid = None
+            if asana_creds.get("project_gids") and len(asana_creds["project_gids"]) > 0:
+                # Get the first project's ID
+                project_gid = list(asana_creds["project_gids"].values())[0]
             
-        # Check if Trello is configured
-        # if os.environ.get("TRELLO_API_KEY") and os.environ.get("TRELLO_TOKEN") and os.environ.get("TRELLO_BOARD_ID"):
-        #     self.register_integration("trello", TrelloIntegration())
+            self.integrations["asana"] = AsanaIntegration(
+                access_token=asana_creds["access_token"],
+                workspace_gid=asana_creds["workspace_gid"],
+                project_gid=project_gid  # Pass the project_gid directly!
+            )
+            
+    def get_integration(self, integration_name):
+        """Get a specific integration by name."""
+        return self.integrations.get(integration_name)
+    # Rest of your methods remain the same
