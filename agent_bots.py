@@ -5,7 +5,9 @@ from langchain.memory import ChatMessageHistory
 import streamlit as st
 from typing import Dict
 import os
+import re
 from dotenv import load_dotenv
+from integrations.manager import IntegrationManager
 
 # Load environment variables
 load_dotenv()
@@ -27,6 +29,8 @@ class Bot:
         self.example_prompts = example_prompts
         self.chat_model = ChatOpenAI(temperature=0.7)
         self.message_history = ChatMessageHistory()
+        self.integration_manager = IntegrationManager()
+        self.integration_manager.setup_default_integrations()
         
         # Create specialized prompt template with additional context
         system_message = f"You are {name}, {role}. Your expertise is in {expertise}. Personality: {personality}"
@@ -75,6 +79,117 @@ Remember, you're not providing generic advice - you're sharing what worked speci
             self.message_history.add_ai_message(response.content)
             
             return response.content
+    
+    def _parse_task_action(self, text):
+        """Parse the input text for task management requests."""
+        # Create task patterns
+        create_patterns = [
+            r"create (?:a )?task(?: to)? (.+)",
+            r"add (?:a )?task(?: for)? (.+)",
+            r"make (?:a )?task(?: to)? (.+)"
+        ]
+        
+        # List tasks pattern
+        list_patterns = [
+            r"(?:show|list|get) (?:my |all |current )?tasks",
+            r"what (?:are my|are the) tasks"
+        ]
+        
+        # Update task pattern
+        update_patterns = [
+            r"update task (\w+) (?:with|to) (.+)",
+            r"change task (\w+) (?:to|with) (.+)"
+        ]
+        
+        # Check create patterns
+        for pattern in create_patterns:
+            match = re.search(pattern, text.lower())
+            if match:
+                return {
+                    "action": "create",
+                    "description": match.group(1).strip()
+                }
+        
+        # Check list patterns
+        for pattern in list_patterns:
+            if re.search(pattern, text.lower()):
+                return {
+                    "action": "list"
+                }
+        
+        # Check update patterns
+        for pattern in update_patterns:
+            match = re.search(pattern, text.lower())
+            if match:
+                return {
+                    "action": "update",
+                    "task_id": match.group(1).strip(),
+                    "changes": match.group(2).strip()
+                }
+        
+        return None
+    
+    def _handle_task_action(self, task_action, user_id=None):
+        """Handle task management actions."""
+        # Get the active PM tool - preference order: Jira, Asana, Trello
+        pm_tool = None
+        for tool_name in ["jira", "asana", "trello"]:
+            tool = self.integration_manager.get_integration(tool_name)
+            if tool:
+                pm_tool = tool
+                pm_name = tool_name.capitalize()
+                break
+        
+        if not pm_tool:
+            return "I'd be happy to help you manage tasks, but you don't have any project management tools configured yet. Ask your administrator to set up Jira, Asana, or Trello integration."
+        
+        # Handle different actions
+        if task_action["action"] == "create":
+            # Extract title and description
+            description = task_action["description"]
+            # Use the first sentence as title if the description is long
+            title = description.split(".")[0]
+            if len(title) > 50:
+                title = title[:47] + "..."
+            
+            try:
+                result = pm_tool.create_task(title, description, assignee=user_id)
+                return f"I've created a new task in {pm_name} for you: '{title}'. You can access it here: {result['url']}"
+            except Exception as e:
+                return f"I tried to create a task in {pm_name}, but encountered an error: {str(e)}"
+        
+        elif task_action["action"] == "list":
+            try:
+                filters = {"assignee": user_id} if user_id else None
+                tasks = pm_tool.get_tasks(filters)
+                
+                if not tasks:
+                    return f"You don't have any active tasks in {pm_name} at the moment."
+                
+                task_list = "\n".join([f"• {task['title']} ({task['status']}): {task['url']}" for task in tasks[:5]])
+                
+                if len(tasks) > 5:
+                    return f"Here are your 5 most recent tasks in {pm_name}:\n{task_list}\n\nAnd {len(tasks) - 5} more tasks..."
+                else:
+                    return f"Here are your tasks in {pm_name}:\n{task_list}"
+            except Exception as e:
+                return f"I tried to fetch your tasks from {pm_name}, but encountered an error: {str(e)}"
+        
+        elif task_action["action"] == "update":
+            try:
+                task_id = task_action["task_id"]
+                changes = task_action["changes"]
+                
+                # Simple implementation - just updating the description
+                pm_tool.update_task(task_id, description=changes)
+                
+                return f"I've updated task {task_id} in {pm_name} with your changes."
+            except Exception as e:
+                return f"I tried to update the task in {pm_name}, but encountered an error: {str(e)}"
+        
+        return "I couldn't process your task management request. Please try again with a different format."
+    
+
 
 # Define bots with their characteristics
 BOTS = {
