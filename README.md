@@ -7,8 +7,5 @@ pip install -r requirements.txt
 
 2. Run the app:
 ```bash
-streamlit run agent_version1.py
+streamlit run agent-version1.py
 ```
-
-
-
