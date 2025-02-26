@@ -16,11 +16,8 @@ load_dotenv()
 class AsanaIntegration(ProjectManagementIntegration):
     def __init__(self, access_token=None, workspace_gid=None):
         self.access_token = access_token or os.environ.get("ASANA_ACCESS_TOKEN")
-        print(f"ASANA_ACCESS_TOKEN: {self.access_token}")
         self.workspace_gid = workspace_gid or os.environ.get("ASANA_WORKSPACE_GID")
-        print(f"ASANA_WORKSPACE_GID: {self.workspace_gid}")
         self.project_gid = os.getenv("ASANA_PROJECT_ID", "")
-        print(f"ASANA_PROJECT_GID: {self.project_gid}")
         self.model = os.environ.get('OPENAI_MODEL', 'gpt-4o-mini')
         
         # Set up Asana API client
