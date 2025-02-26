@@ -11,11 +11,16 @@ from langchain_openai import ChatOpenAI
 from langchain_anthropic import ChatAnthropic
 from langchain_core.messages import SystemMessage, HumanMessage, ToolMessage
 
+load_dotenv()
+
 class AsanaIntegration(ProjectManagementIntegration):
     def __init__(self, access_token=None, workspace_gid=None):
         self.access_token = access_token or os.environ.get("ASANA_ACCESS_TOKEN")
+        print(f"ASANA_ACCESS_TOKEN: {self.access_token}")
         self.workspace_gid = workspace_gid or os.environ.get("ASANA_WORKSPACE_GID")
-        self.project_gid = os.environ.get("ASANA_PROJECT_ID", os.environ.get("ASANA_PROJECT_GID", ""))
+        print(f"ASANA_WORKSPACE_GID: {self.workspace_gid}")
+        self.project_gid = os.getenv("ASANA_PROJECT_ID", "")
+        print(f"ASANA_PROJECT_GID: {self.project_gid}")
         self.model = os.environ.get('OPENAI_MODEL', 'gpt-4o-mini')
         
         # Set up Asana API client
@@ -188,68 +193,191 @@ class AsanaIntegration(ProjectManagementIntegration):
     
     def process_natural_language_request(self, text):
         """Process a natural language request to create tasks using LangChain."""
+        print(f"Processing natural language request: {text}")
+    
+        # Ensure project_gid is properly set
+        if not self.project_gid:
+            raise ValueError("Asana project ID is not set. Please check your ASANA_PROJECT_ID or ASANA_PROJECT_GID environment variable.")
+    
+        print(f"Using Asana project_gid: {self.project_gid}")
+    
         # Create the initial messages
         messages = [
-            SystemMessage(content=f"You are a personal assistant who helps manage tasks in Asana. The current date is: {datetime.now().date()}")
-        ]
+            SystemMessage(content=f"""You are the Infoundr Task AI Assistant, a helpful assistant specialized in task management for entrepreneurs and startup teams.
         
+            You help users create and manage tasks in Asana using natural language. Today's date is {datetime.now().date()}.
+        
+            When users describe tasks, you should identify key details like:
+            - Task name/title
+            - Due date
+            - Description/details
+            - Subtasks (if applicable)
+        
+            Be friendly, professional, and focused on helping entrepreneurs manage their workloads efficiently.
+            """)
+        ]
+    
         # Add the user's request
         messages.append(HumanMessage(content=text))
+        print(f"Messages after adding user request: {messages}")
+    
+        # Create a standalone function that directly calls the Asana API
+        @tool
+        def create_task(task_name, due_on="today", description=None, assignee=None, 
+                     dependencies=None, custom_fields=None, subtasks=None):
+            """Creates a task in Asana with enhanced capabilities."""
+            if due_on == "today":
+                due_on = str(datetime.now().date())
+
+            # Ensure project_gid is properly formatted
+            try:
+                project_id = str(self.project_gid)
+                print(f"Using project ID: {project_id}")
+            except Exception as e:
+                print(f"Error formatting project ID: {e}")
+                raise ValueError(f"Invalid project ID format: {self.project_gid}")
+
+            task_body = {
+                "data": {
+                    "name": task_name,
+                    "due_on": due_on,
+                    "projects": [project_id]
+                }
+            }
         
-        # Define the tools and create LangChain chatbot
-        tools = [self.create_asana_task]
-        
+            # Add optional fields if provided
+            if description:
+                task_body["data"]["notes"] = description
+            if assignee:
+                task_body["data"]["assignee"] = assignee
+            if dependencies:
+                task_body["data"]["dependencies"] = dependencies
+            if custom_fields:
+                task_body["data"]["custom_fields"] = custom_fields
+
+            try:
+                # Print the task body being sent to the API for debugging
+                print(f"Sending task body to Asana API: {json.dumps(task_body)}")
+            
+                # Create main task
+                api_response = self.tasks_api.create_task(task_body, {})
+                task_gid = api_response['gid']
+                print(f"Successfully created task with ID: {task_gid}")
+
+                # Create subtasks if provided
+                if subtasks:
+                    for subtask in subtasks:
+                        # Handle both string subtasks and dict subtasks
+                        if isinstance(subtask, dict) and 'task_name' in subtask:
+                            subtask_name = subtask['task_name']
+                        elif isinstance(subtask, str):
+                            subtask_name = subtask
+                        else:
+                            subtask_name = "Subtask"
+                        
+                        subtask_body = {
+                            "data": {
+                                "name": subtask_name,
+                                "parent": task_gid,
+                                "projects": [project_id]
+                            }
+                        }
+                        self.tasks_api.create_task(subtask_body, {})
+
+                return json.dumps(api_response, indent=2)
+            except ApiException as e:
+                error_detail = str(e)
+                print(f"Asana API error: {error_detail}")
+                return f"Exception when calling TasksApi->create_task: {error_detail}"
+            except Exception as e:
+                print(f"Unexpected error creating task: {e}")
+                return f"Error creating task: {str(e)}"
+    
+        # Define the tools using the wrapper function instead of the class method
+        tools = [create_task]
+        print(f"Tools: {tools}")
+
+        # Create LangChain chatbot
         if "gpt" in self.model.lower():
+            print(f"Using OpenAI model: {self.model}")
             asana_chatbot = ChatOpenAI(model=self.model)
         else:
+            print(f"Using Anthropic model: {self.model}")
             asana_chatbot = ChatAnthropic(model=self.model)
-            
+    
         asana_chatbot_with_tools = asana_chatbot.bind_tools(tools)
-        
-        # Function to handle tool calling with recursion
-        def prompt_ai(messages, nested_calls=0):
+        print(f"Chatbot with tools: {asana_chatbot_with_tools}")
+
+        # Get AI response with tool usage
+        try:
+            # First message to get tool calls
             ai_response = asana_chatbot_with_tools.invoke(messages)
-            tool_calls = len(ai_response.tool_calls) > 0
+            print(f"AI response: {ai_response}")
+        
+            # Check if there are tool calls
+            if ai_response.tool_calls:
+                print(f"Tool calls detected: {len(ai_response.tool_calls)}")
             
-            # If the AI decided to invoke a tool
-            if tool_calls:
-                available_functions = {
-                    "create_asana_task": self.create_asana_task
-                }
-                
-                # Add the tool request to messages
+                # Add the AI's response to the conversation
                 messages.append(ai_response)
-                
-                # Process each tool call
-                for tool_call in ai_response.tool_calls:
-                    tool_name = tool_call["name"].lower()
-                    selected_tool = available_functions[tool_name]
-                    tool_output = selected_tool.invoke(tool_call["args"])
-                    messages.append(ToolMessage(tool_output, tool_call_id=tool_call["id"]))
-                
-                # Call the AI again to get final response
-                return prompt_ai(messages, nested_calls + 1)
             
-            return ai_response
-        
-        # Get AI response
-        result = prompt_ai(messages)
-        
-        # Parse the result to extract task information
-        task_info = {}
-        for msg in messages:
-            if isinstance(msg, ToolMessage):
-                try:
-                    task_data = json.loads(msg.content)
-                    task_info = {
-                        'id': task_data.get('gid', ''),
-                        'title': task_data.get('name', ''),
-                        'url': f"https://app.asana.com/0/{self.project_gid}/{task_data.get('gid', '')}"
-                    }
-                except:
-                    pass
-        
-        return {
-            'response': result.content,
-            'task': task_info
-        }
+                # Process all tool calls
+                for tool_call in ai_response.tool_calls:
+                    tool_call_id = tool_call["id"]
+                    func_name = tool_call["name"]
+                    args = tool_call["args"]
+                
+                    print(f"Processing tool call: {func_name} with args: {args}")
+                
+                    # Execute the tool
+                    try:
+                        tool_result = create_task.invoke(args)
+                        print(f"Tool result: {tool_result}")
+                    
+                        # Add tool result to conversation
+                        messages.append(ToolMessage(
+                            content=tool_result,
+                            tool_call_id=tool_call_id,
+                        ))
+                    except Exception as tool_error:
+                        print(f"Error executing tool: {tool_error}")
+                        # Add error message as tool response
+                        messages.append(ToolMessage(
+                            content=f"Error: {str(tool_error)}",
+                            tool_call_id=tool_call_id,
+                        ))
+            
+                # Get final response after tool execution
+                final_response = asana_chatbot.invoke(messages)
+                print(f"Final response: {final_response.content}")
+            
+                # Parse the task info from the tool results
+                task_info = {}
+                for msg in messages:
+                    if isinstance(msg, ToolMessage):
+                        try:
+                            task_data = json.loads(msg.content)
+                            task_info = {
+                                'id': task_data.get('gid', ''),
+                                'title': task_data.get('name', ''),
+                                'url': f"https://app.asana.com/0/{self.project_gid}/{task_data.get('gid', '')}"
+                            }
+                            break  # Just get the first successful task
+                        except:
+                            continue
+            
+                return {
+                    'response': final_response.content,
+                    'task': task_info
+                }
+            
+            else:
+                # No tool calls, just return the response
+                return {
+                    'response': ai_response.content,
+                    'task': {}
+                }
+            
+        except Exception as e:
+            print(f"Error in process_natural_language_request: {e}")            
+            raise e
