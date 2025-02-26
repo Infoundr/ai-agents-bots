@@ -7,3 +7,6 @@ langchain-anthropic==0.3.6
 langchain-community==0.3.16
 langchain-openai==0.3.6
 streamlit==1.36.0
+jira==3.6.0
+asana==5.0.0
+py-trello==0.20.0
