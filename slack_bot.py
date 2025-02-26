@@ -1,7 +1,7 @@
 from slack_bolt import App
 from slack_bolt.adapter.socket_mode import SocketModeHandler
 from slack_sdk.web import WebClient
-from agent_version1 import BOTS  
+from agent_bots import BOTS  
 import os
 from dotenv import load_dotenv
 import ssl
