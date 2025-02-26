@@ -1,12 +1,11 @@
-from langchain_community.chat_models import ChatOpenAI
+from langchain_openai import ChatOpenAI
 from langchain_core.messages import HumanMessage, AIMessage
 from langchain_core.prompts import ChatPromptTemplate, MessagesPlaceholder
-from langchain.memory import ChatMessageHistory
-import streamlit as st
+from langchain_community.chat_message_histories import ChatMessageHistory
 from typing import Dict
+import streamlit as st
 import os
 from dotenv import load_dotenv
-
 # Load environment variables
 load_dotenv()
 
