@@ -9,6 +9,7 @@ import logging
 import sys
 from collections import defaultdict
 import re
+from typing import Dict, Optional
 
 # Configure logging to show detailed information
 logging.basicConfig(
@@ -28,137 +29,107 @@ ssl_context.verify_mode = ssl.CERT_NONE
 client = WebClient(token=os.environ["SLACK_BOT_TOKEN"], ssl=ssl_context)
 app = App(token=os.environ["SLACK_BOT_TOKEN"], client=client)
 
-
-conversation_histories = defaultdict(dict)
-
+conversation_histories: Dict[str, Dict] = defaultdict(lambda: {
+    "current_bot": None,
+    "thread_ts": None,
+    "history": []
+})
 
 @app.message("")
 def handle_messages(message, say, logger):
     try:
-        logger.debug(f"Received message: {message}")
-        
-        
         if message.get("bot_id") or message.get("subtype") == "bot_message":
-            logger.debug("Skipping bot message")
-        if "text" not in body["event"] or "bot_id" in body["event"]:
             return
-            
+
         text = message.get("text", "").strip()
         user = message.get("user", "")
         channel = message.get("channel", "")
-        conversation_key = f"{channel}:{user}"
-        
-        logger.info(f"Processing message from user {user} in channel {channel}: {text}")
-        print(f"Message from user {user} in channel type {channel_type}: {message}")
-        
-        # Simple bot selection based on message text
-        selected_bot = "Benny"  # Default
-        
-        # Check for expert requests
+        thread_ts = message.get("thread_ts") or message.get("ts")
+        conversation_key = f"{channel}:{thread_ts}"
+
+        # Direct bot request handling
         for bot_name in BOTS.keys():
             trigger = f"Ask {bot_name}:"
             if text.lower().startswith(trigger.lower()):
-                
                 question = text[len(trigger):].strip()
+                # using the correct bot
+                bot = BOTS[bot_name]
+                response = bot.get_response(question)
                 
-                
-                if question.lower() == "your question":
-                    continue
-                    
-                selected_bot = bot_name
-                logger.info(f"Selected bot: {selected_bot}, Processing question: {question}")
-                
-                # Store conversation state
+                # Update conversation state
                 conversation_histories[conversation_key] = {
-                    "current_bot": selected_bot,
-                    "history": []
+                    "current_bot": bot_name,
+                    "thread_ts": thread_ts,
+                    "history": [(question, response)]
                 }
                 
-                # Get and send response
-                response = BOTS[selected_bot].get_response(question)
-                say(f"*{selected_bot} says:*\n{response}")
+                say(f"*{bot_name} says:*\n{response}", thread_ts=thread_ts)
                 return
-        
+
         # Handle ongoing conversations
-        if conversation_key in conversation_histories and conversation_histories[conversation_key].get("current_bot"):
-            selected_bot = conversation_histories[conversation_key]["current_bot"]
-            response = BOTS[selected_bot].get_response(text)
-            say(f"*{selected_bot} says:*\n{response}")
-            return
-            
-        # If no trigger found and no ongoing conversation, provide guidance
-        bot_list = ", ".join(BOTS.keys())
-        say(f"Hi <@{user}>! You can ask any of our experts: {bot_list}\nExample: `Ask Benny: How do I structure my startup funding?`")
-        
-        # Pass the user ID for task management functionality
-        response = BOTS[selected_bot].get_response(message, user_id=user)
-        say(f"*{selected_bot}*: {response}")
+        if conversation_key in conversation_histories:
+            current_bot = conversation_histories[conversation_key]["current_bot"]
+            if current_bot:
+                response = BOTS[current_bot].get_response(text)
+                conversation_histories[conversation_key]["history"].append((text, response))
+                say(f"*{current_bot} says:*\n{response}", thread_ts=thread_ts)
+                return
+
+        # Help message for new conversations
+        if not thread_ts:
+            bot_list = ", ".join(BOTS.keys())
+            say(f"Hi <@{user}>! You can ask any of our experts: {bot_list}\nExample: `Ask Benny: How do I structure my startup funding?`")
+
     except Exception as e:
         logger.error(f"Error processing message: {e}", exc_info=True)
-        say(f"I encountered an unexpected error. Please try again with your question.")
-
-# Handle direct mentions
+        say(f"I encountered an error. Please try asking your question again.", thread_ts=thread_ts)
+       
+        
 @app.event("app_mention")
 def handle_app_mention(event, say, logger):
-    try:
-        logger.debug(f"Received mention event: {event}")
-        
-        channel_id = event.get("channel")
-        user_id = event.get("user")
-        conversation_key = f"{channel_id}:{user_id}"
-        
-        text = event.get("text", "")
-        cleaned_text = text.split(">", 1)[1].strip() if ">" in text else text
-        
-        logger.info(f"App mention from user {user_id}: {cleaned_text}")
-        
-        # Check if user is in active conversation
-        if conversation_key in conversation_histories and conversation_histories[conversation_key].get("current_bot"):
-            selected_bot = conversation_histories[conversation_key]["current_bot"]
-            
-            # Handle conversation control commands
-            if cleaned_text.lower() == "end chat":
-                conversation_histories[conversation_key]["current_bot"] = None
-                say("Chat ended. You can start a new conversation with any expert!")
-                return
-                
-            if cleaned_text.lower().startswith("switch to"):
-                new_bot = cleaned_text.lower().replace("switch to", "").strip()
-                if new_bot in [b.lower() for b in BOTS.keys()]:
-                    selected_bot = [b for b in BOTS.keys() if b.lower() == new_bot][0]
-                    conversation_histories[conversation_key]["current_bot"] = selected_bot
-                    say(f"Switched to {selected_bot}! How can I help?")
-                    return
-                    
-            response = BOTS[selected_bot].get_response(cleaned_text)
-            say(f"*{selected_bot} says:*\n{response}")
-            return
-            
-        # Handle new conversation
-        selected_bot = None
-        for bot_name in BOTS.keys():
-            if bot_name.lower() in cleaned_text.lower():
-                selected_bot = bot_name
-                parts = cleaned_text.split(bot_name, 1)
-                if len(parts) > 1:
-                    cleaned_text = parts[1].strip()
-                break
-                
-        if selected_bot:
-            conversation_histories[conversation_key] = {
-                "current_bot": selected_bot,
-                "history": []
-            }
-            response = BOTS[selected_bot].get_response(cleaned_text)
-            say(f"*{selected_bot} says:*\n{response}")
-        else:
-            bot_list = ", ".join(BOTS.keys())
-            say(f"Hi <@{user_id}>! You can ask any of our experts: {bot_list}\nTry: `Ask {list(BOTS.keys())[0]}: your question`")
-            
-    except Exception as e:
-        logger.error(f"Error processing app mention: {e}", exc_info=True)
-        say(f"Sorry, I encountered an error: {str(e)}")
+    channel_id = event.get("channel")
+    thread_ts = event.get("thread_ts") or event.get("ts")
+    conversation_key = f"{channel_id}:{thread_ts}"
+    
+    text = event.get("text", "")
+    user_id = event.get("user")
+    cleaned_text = text.split(">", 1)[1].strip() if ">" in text else text
 
+    # Direct bot request handling
+    for bot_name in BOTS.keys():
+        trigger = f"ask {bot_name.lower()}:"
+        if trigger in cleaned_text.lower():
+            try:
+                question = cleaned_text.lower().split(trigger)[1].strip()
+                if question:
+                    conversation_histories[conversation_key] = {
+                        "current_bot": bot_name,
+                        "thread_ts": thread_ts,
+                        "history": []
+                    }
+                    response = BOTS[bot_name].get_response(question)
+                    say(f"*{bot_name} says:*\n{response}", thread_ts=thread_ts)
+                    return
+            except Exception as e:
+                logger.error(f"Error processing bot request: {e}", exc_info=True)
+                return
+
+    # Check for ongoing conversation
+    if conversation_key in conversation_histories:
+        current_bot = conversation_histories[conversation_key]["current_bot"]
+        if current_bot:
+            try:
+                response = BOTS[current_bot].get_response(cleaned_text)
+                say(f"*{current_bot} says:*\n{response}", thread_ts=thread_ts)
+                return
+            except Exception as e:
+                logger.error(f"Error in ongoing conversation: {e}", exc_info=True)
+                return
+
+    # Default message for new conversations
+    if not any(f"ask {bot.lower()}:" in cleaned_text.lower() for bot in BOTS.keys()):
+        bot_list = ", ".join(BOTS.keys())
+        say(f"Hi <@{user_id}>! You can ask any of our experts: {bot_list}\nTry: `Ask {list(BOTS.keys())[0]}: your question`", thread_ts=thread_ts)
 @app.command("/hello")
 def hello_command(ack, body, respond):
     ack()
