@@ -130,7 +130,6 @@ You should receive a JSON response containing the bot definition and available c
 After setting up and testing the bot locally:
 1. Register the bot with OpenChat using the `/register_bot` command
 2. Test the bot in a development group
-3. When ready, submit a proposal to publish the bot publicly
 
 ## Troubleshooting
 
