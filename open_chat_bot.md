@@ -1,4 +1,4 @@
-python open_chat_bot.py
+python3 open_chat_bot.py
 
 INFO - Starting bot API server on port 5005
 INFO - Available bots: Benny, Innocent, Dean, Ali, ...
