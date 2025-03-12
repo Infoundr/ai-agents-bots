@@ -168,11 +168,66 @@ fn create_bot_command_definition(bot_name: &str, role: &str) -> BotCommandDefini
     }
 }
 
+// Create project management commands
+fn create_project_command_definitions() -> Vec<BotCommandDefinition> {
+    vec![
+        BotCommandDefinition {
+            name: "project_connect".to_string(),
+            description: Some("Connect your Asana account".to_string()),
+            placeholder: Some("Connecting to Asana...".to_string()),
+            params: vec![BotCommandParam {
+                name: "token".to_string(),
+                description: Some("Your Asana Personal Access Token".to_string()),
+                placeholder: Some("Paste your token here".to_string()),
+                required: true,
+                param_type: BotCommandParamType::StringParam(StringParam {
+                    min_length: 1,
+                    max_length: 1000,
+                    choices: Vec::new(),
+                    multi_line: false,
+                }),
+            }],
+            permissions: BotPermissions::from_message_permission(MessagePermission::Text),
+            default_role: None,
+        },
+        BotCommandDefinition {
+            name: "project_create_task".to_string(),
+            description: Some("Create a new task in Asana".to_string()),
+            placeholder: Some("Creating task...".to_string()),
+            params: vec![BotCommandParam {
+                name: "description".to_string(),
+                description: Some("Description of the task".to_string()),
+                placeholder: Some("What needs to be done?".to_string()),
+                required: true,
+                param_type: BotCommandParamType::StringParam(StringParam {
+                    min_length: 1,
+                    max_length: 10000,
+                    choices: Vec::new(),
+                    multi_line: true,
+                }),
+            }],
+            permissions: BotPermissions::from_message_permission(MessagePermission::Text),
+            default_role: None,
+        },
+        BotCommandDefinition {
+            name: "project_list_tasks".to_string(),
+            description: Some("List your Asana tasks".to_string()),
+            placeholder: Some("Fetching tasks...".to_string()),
+            params: vec![],
+            permissions: BotPermissions::from_message_permission(MessagePermission::Text),
+            default_role: None,
+        },
+    ]
+}
+
 // Bot definition endpoint
 async fn bot_definition(State(state): State<Arc<AppState>>) -> (StatusCode, Bytes) {
+    let mut commands = state.commands.definitions();
+    commands.extend(create_project_command_definitions());
+    
     let definition = BotDefinition {
-        description: "Ask questions to entrepreneurship experts".to_string(),
-        commands: state.commands.definitions(),
+        description: "The Genius AI Co-Founder—get expert advice and manage tasks directly in OpenChat".to_string(),
+        commands,
         autonomous_config: None,
     };
 
@@ -256,16 +311,17 @@ impl oc_bots_sdk::api::command::CommandHandler<AgentRuntime> for BotCommandHandl
         context: oc_bots_sdk::types::BotCommandContext,
         oc_client_factory: &ClientFactory<AgentRuntime>,
     ) -> Result<oc_bots_sdk::api::command::SuccessResult, String> {
-        let question: String = context.command.arg("question");
-        
-        info!("Executing command {} with question: {}", self.command_name, question);
-        
         let payload = serde_json::json!({
             "command": self.command_name,
             "args": {
-                "question": question
+                "question": context.command.arg::<String>("question"),
+                "token": context.command.arg::<String>("token"),
+                "description": context.command.arg::<String>("description"),
+                "user_id": context.token
             }
         });
+        
+        info!("Executing command {} with payload: {}", self.command_name, payload);
         
         let response = match self.http_client
             .post(format!("{}/api/process_command", self.python_api_url))
