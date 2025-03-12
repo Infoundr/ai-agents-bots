@@ -128,6 +128,26 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         commands = commands.register(handler);
     }
 
+    // Register project management commands
+    let project_commands = vec![
+        ("project_connect", "Connect to Asana"),
+        ("project_create_task", "Create Task"),
+        ("project_list_tasks", "List Tasks"),
+    ];
+
+    for (command_name, description) in project_commands {
+        info!("Registering command: {}", command_name);
+        
+        let handler = BotCommandHandler::new(
+            command_name.to_string(),
+            "Project Assistant".to_string(),
+            python_api_url.clone(),
+            http_client.clone(),
+        );
+        
+        commands = commands.register(handler);
+    }
+
     // Create app state
     let app_state = AppState {
         oc_public_key: config.oc_public_key,
@@ -232,8 +252,7 @@ fn create_project_command_definitions() -> Vec<BotCommandDefinition> {
 
 // Bot definition endpoint
 async fn bot_definition(State(state): State<Arc<AppState>>) -> (StatusCode, Bytes) {
-    let mut commands = state.commands.definitions();
-    commands.extend(create_project_command_definitions());
+    let commands = state.commands.definitions();
     
     let definition = BotDefinition {
         description: "The Genius AI Co-Founder—get expert advice and manage tasks directly in OpenChat".to_string(),
@@ -330,24 +349,80 @@ struct BotCommandHandler {
 
 impl BotCommandHandler {
     fn new(command_name: String, bot_name: String, python_api_url: String, http_client: ReqwestClient) -> Self {
-        let definition = BotCommandDefinition {
-            name: command_name.clone(),
-            description: Some(format!("Ask {}", bot_name)),
-            placeholder: Some(format!("Asking {}...", bot_name)),
-            params: vec![BotCommandParam {
-                name: "question".to_string(),
-                description: Some(format!("The question to ask {}", bot_name)),
-                placeholder: Some("Your question".to_string()),
-                required: true,
-                param_type: BotCommandParamType::StringParam(StringParam {
-                    min_length: 1,
-                    max_length: 10000,
-                    choices: Vec::new(),
-                    multi_line: true,
-                }),
-            }],
-            permissions: BotPermissions::from_message_permission(MessagePermission::Text),
-            default_role: None,
+        let definition = match command_name.as_str() {
+            cmd if cmd.starts_with("ask_") => BotCommandDefinition {
+                name: command_name.clone(),
+                description: Some(format!("Ask {}", bot_name)),
+                placeholder: Some(format!("Asking {}...", bot_name)),
+                params: vec![BotCommandParam {
+                    name: "question".to_string(),
+                    description: Some(format!("The question to ask {}", bot_name)),
+                    placeholder: Some("Your question".to_string()),
+                    required: true,
+                    param_type: BotCommandParamType::StringParam(StringParam {
+                        min_length: 1,
+                        max_length: 10000,
+                        choices: Vec::new(),
+                        multi_line: true,
+                    }),
+                }],
+                permissions: BotPermissions::from_message_permission(MessagePermission::Text),
+                default_role: None,
+            },
+            "project_connect" => BotCommandDefinition {
+                name: command_name.clone(),
+                description: Some("Connect your Asana account".to_string()),
+                placeholder: Some("Connecting to Asana...".to_string()),
+                params: vec![BotCommandParam {
+                    name: "token".to_string(),
+                    description: Some("Your Asana Personal Access Token".to_string()),
+                    placeholder: Some("Paste your token here".to_string()),
+                    required: true,
+                    param_type: BotCommandParamType::StringParam(StringParam {
+                        min_length: 1,
+                        max_length: 1000,
+                        choices: Vec::new(),
+                        multi_line: false,
+                    }),
+                }],
+                permissions: BotPermissions::from_message_permission(MessagePermission::Text),
+                default_role: None,
+            },
+            "project_create_task" => BotCommandDefinition {
+                name: command_name.clone(),
+                description: Some("Create a new task in Asana".to_string()),
+                placeholder: Some("Creating task...".to_string()),
+                params: vec![BotCommandParam {
+                    name: "description".to_string(),
+                    description: Some("Description of the task".to_string()),
+                    placeholder: Some("What needs to be done?".to_string()),
+                    required: true,
+                    param_type: BotCommandParamType::StringParam(StringParam {
+                        min_length: 1,
+                        max_length: 10000,
+                        choices: Vec::new(),
+                        multi_line: true,
+                    }),
+                }],
+                permissions: BotPermissions::from_message_permission(MessagePermission::Text),
+                default_role: None,
+            },
+            "project_list_tasks" => BotCommandDefinition {
+                name: command_name.clone(),
+                description: Some("List your Asana tasks".to_string()),
+                placeholder: Some("Fetching tasks...".to_string()),
+                params: vec![],
+                permissions: BotPermissions::from_message_permission(MessagePermission::Text),
+                default_role: None,
+            },
+            _ => BotCommandDefinition {
+                name: command_name.clone(),
+                description: Some(format!("Unknown command: {}", command_name)),
+                placeholder: Some("Unknown...".to_string()),
+                params: vec![],
+                permissions: BotPermissions::from_message_permission(MessagePermission::Text),
+                default_role: None,
+            },
         };
 
         Self {
@@ -372,6 +447,9 @@ impl oc_bots_sdk::api::command::CommandHandler<AgentRuntime> for BotCommandHandl
         context: oc_bots_sdk::types::BotCommandContext,
         oc_client_factory: &ClientFactory<AgentRuntime>,
     ) -> Result<oc_bots_sdk::api::command::SuccessResult, String> {
+        // Extract user ID from the initiator field in the command
+        let user_id = context.command.initiator.to_string();
+        
         // Build payload based on command type
         let payload = match self.command_name.as_str() {
             cmd if cmd.starts_with("ask_") => {
@@ -382,7 +460,7 @@ impl oc_bots_sdk::api::command::CommandHandler<AgentRuntime> for BotCommandHandl
                     "command": self.command_name,
                     "args": {
                         "question": question,
-                        "user_id": context.token
+                        "user_id": user_id
                     }
                 })
             },
@@ -394,7 +472,7 @@ impl oc_bots_sdk::api::command::CommandHandler<AgentRuntime> for BotCommandHandl
                     "command": "project_connect",
                     "args": {
                         "token": token,
-                        "user_id": context.token
+                        "user_id": user_id
                     }
                 })
             },
@@ -406,7 +484,7 @@ impl oc_bots_sdk::api::command::CommandHandler<AgentRuntime> for BotCommandHandl
                     "command": "project_create_task",
                     "args": {
                         "description": description,
-                        "user_id": context.token
+                        "user_id": user_id
                     }
                 })
             },
@@ -416,7 +494,7 @@ impl oc_bots_sdk::api::command::CommandHandler<AgentRuntime> for BotCommandHandl
                 serde_json::json!({
                     "command": "project_list_tasks",
                     "args": {
-                        "user_id": context.token
+                        "user_id": user_id
                     }
                 })
             },
