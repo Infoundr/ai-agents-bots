@@ -239,23 +239,38 @@ async fn bot_definition(State(state): State<Arc<AppState>>) -> (StatusCode, Byte
 
 // Command execution endpoint
 async fn execute_command(State(state): State<Arc<AppState>>, jwt: String) -> (StatusCode, Bytes) {
+    info!("Received command execution request with JWT: {}", jwt);
+    info!("JWT length: {}", jwt.len());
+    info!("JWT content: {}", jwt);
+    info!("Public key being used: {}", state.oc_public_key);
+    
     match state
         .commands
         .execute(&jwt, &state.oc_public_key, env::now())
         .await
     {
         CommandResponse::Success(r) => {
+            info!("Command executed successfully");
             (StatusCode::OK, Bytes::from(serde_json::to_vec(&r).unwrap()))
         }
-        CommandResponse::BadRequest(r) => (
-            StatusCode::BAD_REQUEST,
-            Bytes::from(serde_json::to_vec(&r).unwrap()),
-        ),
-        CommandResponse::InternalError(err) => (
-            StatusCode::INTERNAL_SERVER_ERROR,
-            Bytes::from(format!("{err:?}")),
-        ),
-        CommandResponse::TooManyRequests => (StatusCode::TOO_MANY_REQUESTS, Bytes::new()),
+        CommandResponse::BadRequest(r) => {
+            error!("Bad request: {:?}", r);
+            (
+                StatusCode::BAD_REQUEST,
+                Bytes::from(serde_json::to_vec(&r).unwrap()),
+            )
+        }
+        CommandResponse::InternalError(err) => {
+            error!("Internal error: {:?}", err);
+            (
+                StatusCode::INTERNAL_SERVER_ERROR,
+                Bytes::from(format!("{err:?}")),
+            )
+        }
+        CommandResponse::TooManyRequests => {
+            error!("Too many requests");
+            (StatusCode::TOO_MANY_REQUESTS, Bytes::new())
+        }
     }
 }
 
@@ -311,6 +326,8 @@ impl oc_bots_sdk::api::command::CommandHandler<AgentRuntime> for BotCommandHandl
         context: oc_bots_sdk::types::BotCommandContext,
         oc_client_factory: &ClientFactory<AgentRuntime>,
     ) -> Result<oc_bots_sdk::api::command::SuccessResult, String> {
+        info!("Executing command: {} for user", self.command_name);
+        
         let payload = serde_json::json!({
             "command": self.command_name,
             "args": {
@@ -321,7 +338,7 @@ impl oc_bots_sdk::api::command::CommandHandler<AgentRuntime> for BotCommandHandl
             }
         });
         
-        info!("Executing command {} with payload: {}", self.command_name, payload);
+        info!("Sending payload to Python API: {}", payload);
         
         let response = match self.http_client
             .post(format!("{}/api/process_command", self.python_api_url))
@@ -331,24 +348,41 @@ impl oc_bots_sdk::api::command::CommandHandler<AgentRuntime> for BotCommandHandl
                 Ok(resp) => resp,
                 Err(e) => return Err(format!("Failed to call Python API: {}", e)),
             };
-        
-        // Store the status before moving response
-        let status = response.status();
-        
-        // Try to parse the response
-        if !status.is_success() {
-            match response.json::<PythonErrorResponse>().await {
-                Ok(err) => return Err(err.error),
-                Err(_) => return Err(format!("Python API returned error status: {}", status)),
+
+        // If we get an error about not being connected
+        if response.status() == 400 {
+            let error_response: PythonErrorResponse = response.json().await.map_err(|e| {
+                format!("Failed to parse error response: {}", e)
+            })?;
+            
+            // Check if it's the "not connected" error
+            if error_response.error.contains("Please connect your Asana account first") {
+                let connect_message = format!(
+                    "⚠️ Please connect your Asana account first using `/project_connect YOUR_TOKEN`\n\n\
+                    To get your token:\n\
+                    1. Go to https://app.asana.com/0/developer-console\n\
+                    2. Create a Personal Access Token\n\
+                    3. Copy and use it with the connect command"
+                );
+                
+                let message = oc_client_factory
+                    .build(context)
+                    .send_text_message(connect_message)
+                    .execute_then_return_message(|_, _| ());
+                
+                return Ok(oc_bots_sdk::api::command::SuccessResult { message });
             }
+            
+            return Err(error_response.error);
         }
         
+        // For successful responses
         let bot_response = match response.json::<PythonBotResponse>().await {
             Ok(resp) => resp,
             Err(e) => return Err(format!("Failed to parse Python API response: {}", e)),
         };
         
-        let formatted_response = format!("*{} says:*\n{}", bot_response.bot_name, bot_response.text);
+        let formatted_response = format!("*{}*\n{}", bot_response.bot_name, bot_response.text);
         
         let message = oc_client_factory
             .build(context)
@@ -358,3 +392,10 @@ impl oc_bots_sdk::api::command::CommandHandler<AgentRuntime> for BotCommandHandl
         Ok(oc_bots_sdk::api::command::SuccessResult { message })
     }
 }
+
+// Add this function
+// fn verify_jwt(jwt: &str, public_key: &str) -> bool {
+//     info!("Verifying JWT: {}", jwt);
+//     info!("Using public key: {}", public_key);
+//     // ... rest of verification
+// }

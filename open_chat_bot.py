@@ -179,13 +179,16 @@ def process_command():
     """Process a command from the Rust proxy"""
     try:
         data = request.json
+        logger.info(f"Received request data: {data}")
+        
         if not data:
+            logger.error("No data provided")
             return jsonify({"error": "No data provided"}), 400
         
         command = data.get('command', '')
         args = data.get('args', {})
         
-        logger.info(f"Received command: {command} with args: {args}")
+        logger.info(f"Processing command: {command} with args: {args}")
         
         # Handle ask commands
         if command.startswith('ask_'):
