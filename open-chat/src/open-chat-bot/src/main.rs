@@ -148,6 +148,15 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         commands = commands.register(handler);
     }
 
+    // Add help command
+    let help_handler = BotCommandHandler::new(
+        "help".to_string(),
+        "Project Assistant".to_string(),
+        python_api_url.clone(),
+        http_client.clone(),
+    );
+    commands = commands.register(help_handler);
+
     // Create app state
     let app_state = AppState {
         oc_public_key: config.oc_public_key,
@@ -415,6 +424,14 @@ impl BotCommandHandler {
                 permissions: BotPermissions::from_message_permission(MessagePermission::Text),
                 default_role: None,
             },
+            "help" => BotCommandDefinition {
+                name: "help".to_string(),
+                description: Some("Get help on how to use the bot".to_string()),
+                placeholder: Some("Getting help...".to_string()),
+                params: vec![],
+                permissions: BotPermissions::from_message_permission(MessagePermission::Text),
+                default_role: None,
+            },
             _ => BotCommandDefinition {
                 name: command_name.clone(),
                 description: Some(format!("Unknown command: {}", command_name)),
@@ -450,7 +467,36 @@ impl oc_bots_sdk::api::command::CommandHandler<AgentRuntime> for BotCommandHandl
         // Extract user ID from the initiator field in the command
         let user_id = context.command.initiator.to_string();
         
-        // Build payload based on command type
+        // Special handling for help command
+        if self.command_name == "help" {
+            let help_text = format!(
+                "*Welcome to the InFoundr AI Assistant!* 🤖\n\n\
+                I can help you with expert advice and task management. Here's how to use me:\n\n\
+                *Expert Advice Commands:*\n\
+                `/ask_benny` - Get startup & business advice\n\
+                `/ask_sheila` - Get marketing & growth advice\n\
+                `/ask_caleb` - Get technical & development advice\n\n\
+                *Task Management Commands:*\n\
+                1. First, connect your Asana account:\n\
+                   `/project_connect YOUR_TOKEN` - Get your token from https://app.asana.com/0/developer-console\n\n\
+                2. Then you can:\n\
+                   `/project_create_task` - Create a new task in Asana\n\
+                   `/project_list_tasks` - View your current tasks\n\n\
+                *Examples:*\n\
+                • `/ask_benny How do I validate my startup idea?`\n\
+                • `/project_create_task Create a marketing plan for our new product launch`\n\n\
+                Need more help? Just ask! 😊"
+            );
+
+            let message = oc_client_factory
+                .build(context)
+                .send_text_message(help_text)
+                .execute_then_return_message(|_, _| ());
+
+            return Ok(oc_bots_sdk::api::command::SuccessResult { message });
+        }
+
+        // Build payload for other commands
         let payload = match self.command_name.as_str() {
             cmd if cmd.starts_with("ask_") => {
                 let question: String = context.command.arg("question");
