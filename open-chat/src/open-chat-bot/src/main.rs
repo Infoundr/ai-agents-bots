@@ -4,6 +4,7 @@ use axum::{
     http::StatusCode,
     routing::{get, post},
     Router,
+    http::HeaderMap,
 };
 use dotenv::dotenv;
 use oc_bots_sdk::api::command::{CommandHandlerRegistry, CommandResponse};
@@ -52,6 +53,14 @@ struct BotInfo {
     name: String,
     role: String,
     expertise: String,
+}
+
+// Add this struct to deserialize the command data
+#[derive(Deserialize, Debug)]
+struct CommandRequest {
+    jwt: String,
+    #[serde(rename = "commandRequest")]
+    command_request: serde_json::Value,
 }
 
 #[tokio::main]
@@ -128,11 +137,12 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     };
 
     // Create router with endpoints
-    let routes = Router::new()
+    let app = Router::new()
         .route("/", get(bot_definition))
+        .route("/execute", post(execute_command))
         .route("/execute_command", post(execute_command))
-        .layer(TraceLayer::new_for_http())
         .layer(CorsLayer::permissive())
+        .layer(TraceLayer::new_for_http())
         .with_state(Arc::new(app_state));
 
     // Start HTTP server
@@ -140,7 +150,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     info!("Starting HTTP server on {}", socket_addr);
     
     let listener = tokio::net::TcpListener::bind(socket_addr).await?;
-    axum::serve(listener, routes.into_make_service()).await?;
+    axum::serve(listener, app.into_make_service()).await?;
 
     Ok(())
 }
@@ -238,17 +248,52 @@ async fn bot_definition(State(state): State<Arc<AppState>>) -> (StatusCode, Byte
 }
 
 // Command execution endpoint
-async fn execute_command(State(state): State<Arc<AppState>>, jwt: String) -> (StatusCode, Bytes) {
-    info!("Received command execution request with JWT: {}", jwt);
-    info!("JWT length: {}", jwt.len());
-    info!("JWT content: {}", jwt);
-    info!("Public key being used: {}", state.oc_public_key);
+async fn execute_command(
+    State(state): State<Arc<AppState>>, 
+    headers: HeaderMap,
+    bytes: Bytes,
+) -> (StatusCode, Bytes) {
+    info!("=== Command Execution Start ===");
+    info!("Headers: {:?}", headers);
     
-    match state
+    // Get JWT from x-oc-jwt header
+    let jwt = match headers.get("x-oc-jwt") {
+        Some(jwt_header) => {
+            match jwt_header.to_str() {
+                Ok(jwt) => {
+                    info!("Found JWT in x-oc-jwt header");
+                    jwt.to_string()
+                },
+                Err(e) => {
+                    error!("Invalid JWT header value: {}", e);
+                    return (
+                        StatusCode::BAD_REQUEST,
+                        Bytes::from("Invalid JWT header value"),
+                    );
+                }
+            }
+        },
+        None => {
+            error!("No JWT found in x-oc-jwt header");
+            return (
+                StatusCode::BAD_REQUEST,
+                Bytes::from("Missing JWT header"),
+            );
+        }
+    };
+
+    info!("JWT length: {}", jwt.len());
+    
+    // Parse command data from the JWT payload
+    let result = state
         .commands
         .execute(&jwt, &state.oc_public_key, env::now())
-        .await
-    {
+        .await;
+        
+    info!("Command execution result: {:?}", result);
+    info!("=== Command Execution End ===");
+    
+    match result {
         CommandResponse::Success(r) => {
             info!("Command executed successfully");
             (StatusCode::OK, Bytes::from(serde_json::to_vec(&r).unwrap()))
@@ -315,6 +360,7 @@ impl BotCommandHandler {
     }
 }
 
+// Bot command handler implementation
 #[async_trait::async_trait]
 impl oc_bots_sdk::api::command::CommandHandler<AgentRuntime> for BotCommandHandler {
     fn definition(&self) -> &BotCommandDefinition {
@@ -326,20 +372,57 @@ impl oc_bots_sdk::api::command::CommandHandler<AgentRuntime> for BotCommandHandl
         context: oc_bots_sdk::types::BotCommandContext,
         oc_client_factory: &ClientFactory<AgentRuntime>,
     ) -> Result<oc_bots_sdk::api::command::SuccessResult, String> {
-        info!("Executing command: {} for user", self.command_name);
-        
-        let payload = serde_json::json!({
-            "command": self.command_name,
-            "args": {
-                "question": context.command.arg::<String>("question"),
-                "token": context.command.arg::<String>("token"),
-                "description": context.command.arg::<String>("description"),
-                "user_id": context.token
-            }
-        });
-        
-        info!("Sending payload to Python API: {}", payload);
-        
+        // Build payload based on command type
+        let payload = match self.command_name.as_str() {
+            cmd if cmd.starts_with("ask_") => {
+                let question: String = context.command.arg("question");
+                info!("Executing command {} with question: {}", self.command_name, question);
+                
+                serde_json::json!({
+                    "command": self.command_name,
+                    "args": {
+                        "question": question,
+                        "user_id": context.token
+                    }
+                })
+            },
+            "project_connect" => {
+                let token: String = context.command.arg("token");
+                info!("Executing project_connect with token length: {}", token.len());
+                
+                serde_json::json!({
+                    "command": "project_connect",
+                    "args": {
+                        "token": token,
+                        "user_id": context.token
+                    }
+                })
+            },
+            "project_create_task" => {
+                let description: String = context.command.arg("description");
+                info!("Executing project_create_task with description: {}", description);
+                
+                serde_json::json!({
+                    "command": "project_create_task",
+                    "args": {
+                        "description": description,
+                        "user_id": context.token
+                    }
+                })
+            },
+            "project_list_tasks" => {
+                info!("Executing project_list_tasks");
+                
+                serde_json::json!({
+                    "command": "project_list_tasks",
+                    "args": {
+                        "user_id": context.token
+                    }
+                })
+            },
+            _ => return Err(format!("Unknown command: {}", self.command_name))
+        };
+
         let response = match self.http_client
             .post(format!("{}/api/process_command", self.python_api_url))
             .json(&payload)
@@ -348,35 +431,18 @@ impl oc_bots_sdk::api::command::CommandHandler<AgentRuntime> for BotCommandHandl
                 Ok(resp) => resp,
                 Err(e) => return Err(format!("Failed to call Python API: {}", e)),
             };
-
-        // If we get an error about not being connected
-        if response.status() == 400 {
-            let error_response: PythonErrorResponse = response.json().await.map_err(|e| {
-                format!("Failed to parse error response: {}", e)
-            })?;
-            
-            // Check if it's the "not connected" error
-            if error_response.error.contains("Please connect your Asana account first") {
-                let connect_message = format!(
-                    "⚠️ Please connect your Asana account first using `/project_connect YOUR_TOKEN`\n\n\
-                    To get your token:\n\
-                    1. Go to https://app.asana.com/0/developer-console\n\
-                    2. Create a Personal Access Token\n\
-                    3. Copy and use it with the connect command"
-                );
-                
-                let message = oc_client_factory
-                    .build(context)
-                    .send_text_message(connect_message)
-                    .execute_then_return_message(|_, _| ());
-                
-                return Ok(oc_bots_sdk::api::command::SuccessResult { message });
+        
+        // Store the status before moving response
+        let status = response.status();
+        
+        // Try to parse the response
+        if !status.is_success() {
+            match response.json::<PythonErrorResponse>().await {
+                Ok(err) => return Err(err.error),
+                Err(_) => return Err(format!("Python API returned error status: {}", status)),
             }
-            
-            return Err(error_response.error);
         }
         
-        // For successful responses
         let bot_response = match response.json::<PythonBotResponse>().await {
             Ok(resp) => resp,
             Err(e) => return Err(format!("Failed to parse Python API response: {}", e)),
