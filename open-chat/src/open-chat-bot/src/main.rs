@@ -4,6 +4,7 @@ use axum::{
     http::StatusCode,
     routing::{get, post},
     Router,
+    http::HeaderMap,
 };
 use dotenv::dotenv;
 use oc_bots_sdk::api::command::{CommandHandlerRegistry, CommandResponse};
@@ -52,6 +53,14 @@ struct BotInfo {
     name: String,
     role: String,
     expertise: String,
+}
+
+// Add this struct to deserialize the command data
+#[derive(Deserialize, Debug)]
+struct CommandRequest {
+    jwt: String,
+    #[serde(rename = "commandRequest")]
+    command_request: serde_json::Value,
 }
 
 #[tokio::main]
@@ -119,6 +128,26 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         commands = commands.register(handler);
     }
 
+    // Register project management commands
+    let project_commands = vec![
+        ("project_connect", "Connect to Asana"),
+        ("project_create_task", "Create Task"),
+        ("project_list_tasks", "List Tasks"),
+    ];
+
+    for (command_name, description) in project_commands {
+        info!("Registering command: {}", command_name);
+        
+        let handler = BotCommandHandler::new(
+            command_name.to_string(),
+            "Project Assistant".to_string(),
+            python_api_url.clone(),
+            http_client.clone(),
+        );
+        
+        commands = commands.register(handler);
+    }
+
     // Create app state
     let app_state = AppState {
         oc_public_key: config.oc_public_key,
@@ -128,11 +157,12 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     };
 
     // Create router with endpoints
-    let routes = Router::new()
+    let app = Router::new()
         .route("/", get(bot_definition))
+        .route("/execute", post(execute_command))
         .route("/execute_command", post(execute_command))
-        .layer(TraceLayer::new_for_http())
         .layer(CorsLayer::permissive())
+        .layer(TraceLayer::new_for_http())
         .with_state(Arc::new(app_state));
 
     // Start HTTP server
@@ -140,7 +170,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     info!("Starting HTTP server on {}", socket_addr);
     
     let listener = tokio::net::TcpListener::bind(socket_addr).await?;
-    axum::serve(listener, routes.into_make_service()).await?;
+    axum::serve(listener, app.into_make_service()).await?;
 
     Ok(())
 }
@@ -168,11 +198,65 @@ fn create_bot_command_definition(bot_name: &str, role: &str) -> BotCommandDefini
     }
 }
 
+// Create project management commands
+fn create_project_command_definitions() -> Vec<BotCommandDefinition> {
+    vec![
+        BotCommandDefinition {
+            name: "project_connect".to_string(),
+            description: Some("Connect your Asana account".to_string()),
+            placeholder: Some("Connecting to Asana...".to_string()),
+            params: vec![BotCommandParam {
+                name: "token".to_string(),
+                description: Some("Your Asana Personal Access Token".to_string()),
+                placeholder: Some("Paste your token here".to_string()),
+                required: true,
+                param_type: BotCommandParamType::StringParam(StringParam {
+                    min_length: 1,
+                    max_length: 1000,
+                    choices: Vec::new(),
+                    multi_line: false,
+                }),
+            }],
+            permissions: BotPermissions::from_message_permission(MessagePermission::Text),
+            default_role: None,
+        },
+        BotCommandDefinition {
+            name: "project_create_task".to_string(),
+            description: Some("Create a new task in Asana".to_string()),
+            placeholder: Some("Creating task...".to_string()),
+            params: vec![BotCommandParam {
+                name: "description".to_string(),
+                description: Some("Description of the task".to_string()),
+                placeholder: Some("What needs to be done?".to_string()),
+                required: true,
+                param_type: BotCommandParamType::StringParam(StringParam {
+                    min_length: 1,
+                    max_length: 10000,
+                    choices: Vec::new(),
+                    multi_line: true,
+                }),
+            }],
+            permissions: BotPermissions::from_message_permission(MessagePermission::Text),
+            default_role: None,
+        },
+        BotCommandDefinition {
+            name: "project_list_tasks".to_string(),
+            description: Some("List your Asana tasks".to_string()),
+            placeholder: Some("Fetching tasks...".to_string()),
+            params: vec![],
+            permissions: BotPermissions::from_message_permission(MessagePermission::Text),
+            default_role: None,
+        },
+    ]
+}
+
 // Bot definition endpoint
 async fn bot_definition(State(state): State<Arc<AppState>>) -> (StatusCode, Bytes) {
+    let commands = state.commands.definitions();
+    
     let definition = BotDefinition {
-        description: "Ask questions to entrepreneurship experts".to_string(),
-        commands: state.commands.definitions(),
+        description: "The Genius AI Co-Founder—get expert advice and manage tasks directly in OpenChat".to_string(),
+        commands,
         autonomous_config: None,
     };
 
@@ -183,24 +267,74 @@ async fn bot_definition(State(state): State<Arc<AppState>>) -> (StatusCode, Byte
 }
 
 // Command execution endpoint
-async fn execute_command(State(state): State<Arc<AppState>>, jwt: String) -> (StatusCode, Bytes) {
-    match state
+async fn execute_command(
+    State(state): State<Arc<AppState>>, 
+    headers: HeaderMap,
+    bytes: Bytes,
+) -> (StatusCode, Bytes) {
+    info!("=== Command Execution Start ===");
+    info!("Headers: {:?}", headers);
+    
+    // Get JWT from x-oc-jwt header
+    let jwt = match headers.get("x-oc-jwt") {
+        Some(jwt_header) => {
+            match jwt_header.to_str() {
+                Ok(jwt) => {
+                    info!("Found JWT in x-oc-jwt header");
+                    jwt.to_string()
+                },
+                Err(e) => {
+                    error!("Invalid JWT header value: {}", e);
+                    return (
+                        StatusCode::BAD_REQUEST,
+                        Bytes::from("Invalid JWT header value"),
+                    );
+                }
+            }
+        },
+        None => {
+            error!("No JWT found in x-oc-jwt header");
+            return (
+                StatusCode::BAD_REQUEST,
+                Bytes::from("Missing JWT header"),
+            );
+        }
+    };
+
+    info!("JWT length: {}", jwt.len());
+    
+    // Parse command data from the JWT payload
+    let result = state
         .commands
         .execute(&jwt, &state.oc_public_key, env::now())
-        .await
-    {
+        .await;
+        
+    info!("Command execution result: {:?}", result);
+    info!("=== Command Execution End ===");
+    
+    match result {
         CommandResponse::Success(r) => {
+            info!("Command executed successfully");
             (StatusCode::OK, Bytes::from(serde_json::to_vec(&r).unwrap()))
         }
-        CommandResponse::BadRequest(r) => (
-            StatusCode::BAD_REQUEST,
-            Bytes::from(serde_json::to_vec(&r).unwrap()),
-        ),
-        CommandResponse::InternalError(err) => (
-            StatusCode::INTERNAL_SERVER_ERROR,
-            Bytes::from(format!("{err:?}")),
-        ),
-        CommandResponse::TooManyRequests => (StatusCode::TOO_MANY_REQUESTS, Bytes::new()),
+        CommandResponse::BadRequest(r) => {
+            error!("Bad request: {:?}", r);
+            (
+                StatusCode::BAD_REQUEST,
+                Bytes::from(serde_json::to_vec(&r).unwrap()),
+            )
+        }
+        CommandResponse::InternalError(err) => {
+            error!("Internal error: {:?}", err);
+            (
+                StatusCode::INTERNAL_SERVER_ERROR,
+                Bytes::from(format!("{err:?}")),
+            )
+        }
+        CommandResponse::TooManyRequests => {
+            error!("Too many requests");
+            (StatusCode::TOO_MANY_REQUESTS, Bytes::new())
+        }
     }
 }
 
@@ -215,24 +349,80 @@ struct BotCommandHandler {
 
 impl BotCommandHandler {
     fn new(command_name: String, bot_name: String, python_api_url: String, http_client: ReqwestClient) -> Self {
-        let definition = BotCommandDefinition {
-            name: command_name.clone(),
-            description: Some(format!("Ask {}", bot_name)),
-            placeholder: Some(format!("Asking {}...", bot_name)),
-            params: vec![BotCommandParam {
-                name: "question".to_string(),
-                description: Some(format!("The question to ask {}", bot_name)),
-                placeholder: Some("Your question".to_string()),
-                required: true,
-                param_type: BotCommandParamType::StringParam(StringParam {
-                    min_length: 1,
-                    max_length: 10000,
-                    choices: Vec::new(),
-                    multi_line: true,
-                }),
-            }],
-            permissions: BotPermissions::from_message_permission(MessagePermission::Text),
-            default_role: None,
+        let definition = match command_name.as_str() {
+            cmd if cmd.starts_with("ask_") => BotCommandDefinition {
+                name: command_name.clone(),
+                description: Some(format!("Ask {}", bot_name)),
+                placeholder: Some(format!("Asking {}...", bot_name)),
+                params: vec![BotCommandParam {
+                    name: "question".to_string(),
+                    description: Some(format!("The question to ask {}", bot_name)),
+                    placeholder: Some("Your question".to_string()),
+                    required: true,
+                    param_type: BotCommandParamType::StringParam(StringParam {
+                        min_length: 1,
+                        max_length: 10000,
+                        choices: Vec::new(),
+                        multi_line: true,
+                    }),
+                }],
+                permissions: BotPermissions::from_message_permission(MessagePermission::Text),
+                default_role: None,
+            },
+            "project_connect" => BotCommandDefinition {
+                name: command_name.clone(),
+                description: Some("Connect your Asana account".to_string()),
+                placeholder: Some("Connecting to Asana...".to_string()),
+                params: vec![BotCommandParam {
+                    name: "token".to_string(),
+                    description: Some("Your Asana Personal Access Token".to_string()),
+                    placeholder: Some("Paste your token here".to_string()),
+                    required: true,
+                    param_type: BotCommandParamType::StringParam(StringParam {
+                        min_length: 1,
+                        max_length: 1000,
+                        choices: Vec::new(),
+                        multi_line: false,
+                    }),
+                }],
+                permissions: BotPermissions::from_message_permission(MessagePermission::Text),
+                default_role: None,
+            },
+            "project_create_task" => BotCommandDefinition {
+                name: command_name.clone(),
+                description: Some("Create a new task in Asana".to_string()),
+                placeholder: Some("Creating task...".to_string()),
+                params: vec![BotCommandParam {
+                    name: "description".to_string(),
+                    description: Some("Description of the task".to_string()),
+                    placeholder: Some("What needs to be done?".to_string()),
+                    required: true,
+                    param_type: BotCommandParamType::StringParam(StringParam {
+                        min_length: 1,
+                        max_length: 10000,
+                        choices: Vec::new(),
+                        multi_line: true,
+                    }),
+                }],
+                permissions: BotPermissions::from_message_permission(MessagePermission::Text),
+                default_role: None,
+            },
+            "project_list_tasks" => BotCommandDefinition {
+                name: command_name.clone(),
+                description: Some("List your Asana tasks".to_string()),
+                placeholder: Some("Fetching tasks...".to_string()),
+                params: vec![],
+                permissions: BotPermissions::from_message_permission(MessagePermission::Text),
+                default_role: None,
+            },
+            _ => BotCommandDefinition {
+                name: command_name.clone(),
+                description: Some(format!("Unknown command: {}", command_name)),
+                placeholder: Some("Unknown...".to_string()),
+                params: vec![],
+                permissions: BotPermissions::from_message_permission(MessagePermission::Text),
+                default_role: None,
+            },
         };
 
         Self {
@@ -245,6 +435,7 @@ impl BotCommandHandler {
     }
 }
 
+// Bot command handler implementation
 #[async_trait::async_trait]
 impl oc_bots_sdk::api::command::CommandHandler<AgentRuntime> for BotCommandHandler {
     fn definition(&self) -> &BotCommandDefinition {
@@ -256,17 +447,60 @@ impl oc_bots_sdk::api::command::CommandHandler<AgentRuntime> for BotCommandHandl
         context: oc_bots_sdk::types::BotCommandContext,
         oc_client_factory: &ClientFactory<AgentRuntime>,
     ) -> Result<oc_bots_sdk::api::command::SuccessResult, String> {
-        let question: String = context.command.arg("question");
+        // Extract user ID from the initiator field in the command
+        let user_id = context.command.initiator.to_string();
         
-        info!("Executing command {} with question: {}", self.command_name, question);
-        
-        let payload = serde_json::json!({
-            "command": self.command_name,
-            "args": {
-                "question": question
-            }
-        });
-        
+        // Build payload based on command type
+        let payload = match self.command_name.as_str() {
+            cmd if cmd.starts_with("ask_") => {
+                let question: String = context.command.arg("question");
+                info!("Executing command {} with question: {}", self.command_name, question);
+                
+                serde_json::json!({
+                    "command": self.command_name,
+                    "args": {
+                        "question": question,
+                        "user_id": user_id
+                    }
+                })
+            },
+            "project_connect" => {
+                let token: String = context.command.arg("token");
+                info!("Executing project_connect with token length: {}", token.len());
+                
+                serde_json::json!({
+                    "command": "project_connect",
+                    "args": {
+                        "token": token,
+                        "user_id": user_id
+                    }
+                })
+            },
+            "project_create_task" => {
+                let description: String = context.command.arg("description");
+                info!("Executing project_create_task with description: {}", description);
+                
+                serde_json::json!({
+                    "command": "project_create_task",
+                    "args": {
+                        "description": description,
+                        "user_id": user_id
+                    }
+                })
+            },
+            "project_list_tasks" => {
+                info!("Executing project_list_tasks");
+                
+                serde_json::json!({
+                    "command": "project_list_tasks",
+                    "args": {
+                        "user_id": user_id
+                    }
+                })
+            },
+            _ => return Err(format!("Unknown command: {}", self.command_name))
+        };
+
         let response = match self.http_client
             .post(format!("{}/api/process_command", self.python_api_url))
             .json(&payload)
@@ -292,7 +526,7 @@ impl oc_bots_sdk::api::command::CommandHandler<AgentRuntime> for BotCommandHandl
             Err(e) => return Err(format!("Failed to parse Python API response: {}", e)),
         };
         
-        let formatted_response = format!("*{} says:*\n{}", bot_response.bot_name, bot_response.text);
+        let formatted_response = format!("*{}*\n{}", bot_response.bot_name, bot_response.text);
         
         let message = oc_client_factory
             .build(context)
@@ -302,3 +536,10 @@ impl oc_bots_sdk::api::command::CommandHandler<AgentRuntime> for BotCommandHandl
         Ok(oc_bots_sdk::api::command::SuccessResult { message })
     }
 }
+
+// Add this function
+// fn verify_jwt(jwt: &str, public_key: &str) -> bool {
+//     info!("Verifying JWT: {}", jwt);
+//     info!("Using public key: {}", public_key);
+//     // ... rest of verification
+// }
