@@ -193,10 +193,10 @@ fn create_bot_command_definition(bot_name: &str, role: &str) -> BotCommandDefini
         params: vec![BotCommandParam {
             name: "question".to_string(),
             description: Some(format!("The question to ask {}", bot_name)),
-            placeholder: Some("Your question".to_string()),
+            placeholder: Some("Type your detailed question here...".to_string()),
             required: true,
             param_type: BotCommandParamType::StringParam(StringParam {
-                min_length: 1,
+                min_length: 5,
                 max_length: 10000,
                 choices: Vec::new(),
                 multi_line: true,
@@ -359,17 +359,86 @@ struct BotCommandHandler {
 impl BotCommandHandler {
     fn new(command_name: String, bot_name: String, python_api_url: String, http_client: ReqwestClient) -> Self {
         let definition = match command_name.as_str() {
+            "ask_benny" => BotCommandDefinition {
+                name: command_name.clone(),
+                description: Some("💡 Get expert advice on fintech strategies, payment solutions, and financial planning".to_string()),
+                placeholder: Some("Type your question for Benny...".to_string()),
+                params: vec![BotCommandParam {
+                    name: "question".to_string(),
+                    description: Some(
+                        "Try:\n\
+                        How should I structure my initial funding round?\n\
+                        What key metrics attract investors?".to_string()
+                    ),
+                    placeholder: Some("Type your detailed question here...".to_string()),
+                    required: true,
+                    param_type: BotCommandParamType::StringParam(StringParam {
+                        min_length: 5,
+                        max_length: 10000,
+                        choices: Vec::new(),
+                        multi_line: true,
+                    }),
+                }],
+                permissions: BotPermissions::from_message_permission(MessagePermission::Text),
+                default_role: None,
+            },
+            "ask_sheila" => BotCommandDefinition {
+                name: command_name.clone(),
+                description: Some("🚀 Get expert advice on startup launches, marketing strategies, and team management".to_string()),
+                placeholder: Some("Type your question for Sheila...".to_string()),
+                params: vec![BotCommandParam {
+                    name: "question".to_string(),
+                    description: Some(
+                        "Try:\n\
+                        How do I find the right technical co-founder?\n\
+                        What's the best compensation structure for early hires?".to_string()
+                    ),
+                    placeholder: Some("Type your detailed question here...".to_string()),
+                    required: true,
+                    param_type: BotCommandParamType::StringParam(StringParam {
+                        min_length: 5,
+                        max_length: 10000,
+                        choices: Vec::new(),
+                        multi_line: true,
+                    }),
+                }],
+                permissions: BotPermissions::from_message_permission(MessagePermission::Text),
+                default_role: None,
+            },
+            "ask_caleb" => BotCommandDefinition {
+                name: command_name.clone(),
+                description: Some("🤝 Get expert advice on strategic partnerships, networking, and collaboration".to_string()),
+                placeholder: Some("Type your question for Caleb...".to_string()),
+                params: vec![BotCommandParam {
+                    name: "question".to_string(),
+                    description: Some(
+                        "Try:\n\
+                        How do I approach potential corporate partners?\n\
+                        How do I build a valuable professional network?".to_string()
+                    ),
+                    placeholder: Some("Type your detailed question here...".to_string()),
+                    required: true,
+                    param_type: BotCommandParamType::StringParam(StringParam {
+                        min_length: 5,
+                        max_length: 10000,
+                        choices: Vec::new(),
+                        multi_line: true,
+                    }),
+                }],
+                permissions: BotPermissions::from_message_permission(MessagePermission::Text),
+                default_role: None,
+            },
             cmd if cmd.starts_with("ask_") => BotCommandDefinition {
                 name: command_name.clone(),
-                description: Some(format!("Ask {}", bot_name)),
+                description: Some(format!("Ask {}...", bot_name)),
                 placeholder: Some(format!("Asking {}...", bot_name)),
                 params: vec![BotCommandParam {
                     name: "question".to_string(),
                     description: Some(format!("The question to ask {}", bot_name)),
-                    placeholder: Some("Your question".to_string()),
+                    placeholder: Some("Type your detailed question here...".to_string()),
                     required: true,
                     param_type: BotCommandParamType::StringParam(StringParam {
-                        min_length: 1,
+                        min_length: 5,
                         max_length: 10000,
                         choices: Vec::new(),
                         multi_line: true,
