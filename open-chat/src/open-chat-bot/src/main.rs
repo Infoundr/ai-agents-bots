@@ -335,7 +335,7 @@ impl BotCommandHandler {
             "ask" => BotCommandDefinition {
                 name: command_name.clone(),
                 description: Some("Ask our AI experts for advice".to_string()),
-                placeholder: Some("Format: [Expert Name] - [Your Question]".to_string()),
+                placeholder: Some("Processing your question...".to_string()),
                 params: vec![BotCommandParam {
                     name: "message".to_string(),
                     description: Some(
@@ -360,7 +360,7 @@ impl BotCommandHandler {
             "project" => BotCommandDefinition {
                 name: command_name.clone(),
                 description: Some("Manage your Asana projects and tasks".to_string()),
-                placeholder: Some("Format: [action] [parameters]".to_string()),
+                placeholder: Some("Processing your request...".to_string()),
                 params: vec![BotCommandParam {
                     name: "command".to_string(),
                     description: Some(
@@ -428,6 +428,10 @@ impl oc_bots_sdk::api::command::CommandHandler<AgentRuntime> for BotCommandHandl
                 let expert_name = parts[0].trim().to_lowercase();
                 let question = parts[1].trim();
 
+                // Set processing message based on expert
+                let processing_message = format!("Asking {}...", expert_name);
+                info!("{}", processing_message);
+
                 let command_name = format!("ask_{}", expert_name);
                 
                 let payload = serde_json::json!({
@@ -478,6 +482,15 @@ impl oc_bots_sdk::api::command::CommandHandler<AgentRuntime> for BotCommandHandl
 
                 let action = parts[0].trim().to_lowercase();
                 let params = parts.get(1).map(|s| s.trim()).unwrap_or("");
+
+                // Set processing message based on action
+                let processing_message = match action.as_str() {
+                    "connect" => "Connecting to Asana...",
+                    "list" => "Fetching your tasks...",
+                    "create" => "Creating new task...",
+                    _ => "Processing project command...",
+                };
+                info!("{}", processing_message);
 
                 let payload = match action.as_str() {
                     "connect" => serde_json::json!({
