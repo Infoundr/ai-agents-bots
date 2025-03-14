@@ -40,9 +40,27 @@ class UserCredentialStore:
             "project_gids": asana_data.get("project_gids", {})
         }
 
-def clear_asana_credentials(self, user_id: str):
-    """Clear a user's Asana credentials."""
-    if user_id in st.session_state.user_credentials and "asana" in st.session_state.user_credentials[user_id]:
-        del st.session_state.user_credentials[user_id]["asana"]
-        return True
-    return False
+    def clear_asana_credentials(self, user_id: str):
+        """Clear a user's Asana credentials."""
+        if user_id in st.session_state.user_credentials and "asana" in st.session_state.user_credentials[user_id]:
+            del st.session_state.user_credentials[user_id]["asana"]
+            return True
+        return False
+    def store_github_credentials(self, user_id: str, token: str):
+        """Store GitHub credentials for a user"""
+        if user_id not in st.session_state.user_credentials:
+            st.session_state.user_credentials[user_id] = {}
+        st.session_state.user_credentials[user_id]['github'] = {
+            'token': token
+        }
+
+    def get_github_credentials(self, user_id: str):
+        """Get GitHub credentials for a user"""
+        return st.session_state.user_credentials.get(user_id, {}).get('github')
+
+    def update_github_credentials(self, user_id: str, credentials: dict):
+        """Update GitHub credentials for a user"""
+        if user_id not in st.session_state.user_credentials:
+            st.session_state.user_credentials[user_id] = {}
+        st.session_state.user_credentials[user_id]['github'] = credentials
+
