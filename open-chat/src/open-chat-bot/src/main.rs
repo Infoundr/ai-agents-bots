@@ -112,50 +112,23 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     // Create command registry
     let mut commands = CommandHandlerRegistry::new(oc_client_factory);
     
-    // Register commands for each bot
-    for (bot_name, _info) in bot_info.iter() {
-        let command_name = format!("ask_{}", bot_name.to_lowercase());
-        info!("Registering command: {}", command_name);
-        
-        // Create command handler for this bot using the new constructor
-        let handler = BotCommandHandler::new(
-            command_name,
-            bot_name.clone(),
-            python_api_url.clone(),
-            http_client.clone(),
-        );
-        
-        commands = commands.register(handler);
-    }
+    // Register the unified ask command
+    let ask_handler = BotCommandHandler::new(
+        "ask".to_string(),
+        "AI Assistant".to_string(),
+        python_api_url.clone(),
+        http_client.clone(),
+    );
+    commands = commands.register(ask_handler);
 
-    // Register project management commands
-    let project_commands = vec![
-        ("project_connect", "Connect to Asana"),
-        ("project_create_task", "Create Task"),
-        ("project_list_tasks", "List Tasks"),
-    ];
-
-    for (command_name, description) in project_commands {
-        info!("Registering command: {}", command_name);
-        
-        let handler = BotCommandHandler::new(
-            command_name.to_string(),
-            "Project Assistant".to_string(),
-            python_api_url.clone(),
-            http_client.clone(),
-        );
-        
-        commands = commands.register(handler);
-    }
-
-    // Add help command
-    let help_handler = BotCommandHandler::new(
-        "help".to_string(),
+    // Register the unified project command
+    let project_handler = BotCommandHandler::new(
+        "project".to_string(),
         "Project Assistant".to_string(),
         python_api_url.clone(),
         http_client.clone(),
     );
-    commands = commands.register(help_handler);
+    commands = commands.register(project_handler);
 
     // Create app state
     let app_state = AppState {
@@ -359,14 +332,20 @@ struct BotCommandHandler {
 impl BotCommandHandler {
     fn new(command_name: String, bot_name: String, python_api_url: String, http_client: ReqwestClient) -> Self {
         let definition = match command_name.as_str() {
-            cmd if cmd.starts_with("ask_") => BotCommandDefinition {
+            "ask" => BotCommandDefinition {
                 name: command_name.clone(),
-                description: Some(format!("Ask {}", bot_name)),
-                placeholder: Some(format!("Asking {}...", bot_name)),
+                description: Some("Ask our AI experts for advice".to_string()),
+                placeholder: Some("Format: [Expert Name] - [Your Question]".to_string()),
                 params: vec![BotCommandParam {
-                    name: "question".to_string(),
-                    description: Some(format!("The question to ask {}", bot_name)),
-                    placeholder: Some("Your question".to_string()),
+                    name: "message".to_string(),
+                    description: Some(
+                        "Available Experts:\n\
+                        • Benny - Fintech & Fundraising Expert\n\
+                        • Sheila - Marketing & Growth Expert\n\
+                        • Caleb - Partnerships & Tech Expert\n\n\
+                        Example: Benny - How should I structure my funding round?"
+                    .to_string()),
+                    placeholder: Some("[Expert Name] - [Your Question]".to_string()),
                     required: true,
                     param_type: BotCommandParamType::StringParam(StringParam {
                         min_length: 1,
@@ -378,33 +357,20 @@ impl BotCommandHandler {
                 permissions: BotPermissions::from_message_permission(MessagePermission::Text),
                 default_role: None,
             },
-            "project_connect" => BotCommandDefinition {
+            "project" => BotCommandDefinition {
                 name: command_name.clone(),
-                description: Some("Connect your Asana account".to_string()),
-                placeholder: Some("Connecting to Asana...".to_string()),
+                description: Some("Manage your Asana projects and tasks".to_string()),
+                placeholder: Some("Format: [action] [parameters]".to_string()),
                 params: vec![BotCommandParam {
-                    name: "token".to_string(),
-                    description: Some("Your Asana Personal Access Token".to_string()),
-                    placeholder: Some("Paste your token here".to_string()),
-                    required: true,
-                    param_type: BotCommandParamType::StringParam(StringParam {
-                        min_length: 1,
-                        max_length: 1000,
-                        choices: Vec::new(),
-                        multi_line: false,
-                    }),
-                }],
-                permissions: BotPermissions::from_message_permission(MessagePermission::Text),
-                default_role: None,
-            },
-            "project_create_task" => BotCommandDefinition {
-                name: command_name.clone(),
-                description: Some("Create a new task in Asana".to_string()),
-                placeholder: Some("Creating task...".to_string()),
-                params: vec![BotCommandParam {
-                    name: "description".to_string(),
-                    description: Some("Description of the task".to_string()),
-                    placeholder: Some("What needs to be done?".to_string()),
+                    name: "command".to_string(),
+                    description: Some(
+                        "Available Actions:\n\
+                        • connect [token] - Connect your Asana account\n\
+                        • list - View your tasks\n\
+                        • create [description] - Create a new task\n\n\
+                        Example: create Build landing page"
+                    .to_string()),
+                    placeholder: Some("[action] [parameters]".to_string()),
                     required: true,
                     param_type: BotCommandParamType::StringParam(StringParam {
                         min_length: 1,
@@ -413,29 +379,13 @@ impl BotCommandHandler {
                         multi_line: true,
                     }),
                 }],
-                permissions: BotPermissions::from_message_permission(MessagePermission::Text),
-                default_role: None,
-            },
-            "project_list_tasks" => BotCommandDefinition {
-                name: command_name.clone(),
-                description: Some("List your Asana tasks".to_string()),
-                placeholder: Some("Fetching tasks...".to_string()),
-                params: vec![],
-                permissions: BotPermissions::from_message_permission(MessagePermission::Text),
-                default_role: None,
-            },
-            "help" => BotCommandDefinition {
-                name: "help".to_string(),
-                description: Some("Get help on how to use the bot".to_string()),
-                placeholder: Some("Getting help...".to_string()),
-                params: vec![],
                 permissions: BotPermissions::from_message_permission(MessagePermission::Text),
                 default_role: None,
             },
             _ => BotCommandDefinition {
                 name: command_name.clone(),
-                description: Some(format!("Unknown command: {}", command_name)),
-                placeholder: Some("Unknown...".to_string()),
+                description: Some("Unknown command".to_string()),
+                placeholder: Some("Unknown command".to_string()),
                 params: vec![],
                 permissions: BotPermissions::from_message_permission(MessagePermission::Text),
                 default_role: None,
@@ -464,122 +414,127 @@ impl oc_bots_sdk::api::command::CommandHandler<AgentRuntime> for BotCommandHandl
         context: oc_bots_sdk::types::BotCommandContext,
         oc_client_factory: &ClientFactory<AgentRuntime>,
     ) -> Result<oc_bots_sdk::api::command::SuccessResult, String> {
-        // Extract user ID from the initiator field in the command
         let user_id = context.command.initiator.to_string();
-        
-        // Special handling for help command
-        if self.command_name == "help" {
-            let help_text = format!(
-                "*Welcome to the InFoundr AI Assistant!* 🤖\n\n\
-                I can help you with expert advice and task management. Here's how to use me:\n\n\
-                *Expert Advice Commands:*\n\
-                `/ask_benny` - Get startup & business advice\n\
-                `/ask_sheila` - Get marketing & growth advice\n\
-                `/ask_caleb` - Get technical & development advice\n\n\
-                *Task Management Commands:*\n\
-                1. First, connect your Asana account:\n\
-                   `/project_connect YOUR_TOKEN` - Get your token from https://app.asana.com/0/developer-console\n\n\
-                2. Then you can:\n\
-                   `/project_create_task` - Create a new task in Asana\n\
-                   `/project_list_tasks` - View your current tasks\n\n\
-                *Examples:*\n\
-                • `/ask_benny How do I validate my startup idea?`\n\
-                • `/project_create_task Create a marketing plan for our new product launch`\n\n\
-                Need more help? Just ask! 😊"
-            );
 
-            let message = oc_client_factory
-                .build(context)
-                .send_text_message(help_text)
-                .execute_then_return_message(|_, _| ());
+        match self.command_name.as_str() {
+            "ask" => {
+                let message: String = context.command.arg("message");
+                let parts: Vec<&str> = message.splitn(2, '-').collect();
 
-            return Ok(oc_bots_sdk::api::command::SuccessResult { message });
-        }
+                if parts.len() != 2 {
+                    return Err("Please use the format: [Expert Name] - [Your Question]".to_string());
+                }
 
-        // Build payload for other commands
-        let payload = match self.command_name.as_str() {
-            cmd if cmd.starts_with("ask_") => {
-                let question: String = context.command.arg("question");
-                info!("Executing command {} with question: {}", self.command_name, question);
+                let expert_name = parts[0].trim().to_lowercase();
+                let question = parts[1].trim();
+
+                let command_name = format!("ask_{}", expert_name);
                 
-                serde_json::json!({
-                    "command": self.command_name,
+                let payload = serde_json::json!({
+                    "command": command_name,
                     "args": {
                         "question": question,
                         "user_id": user_id
                     }
-                })
-            },
-            "project_connect" => {
-                let token: String = context.command.arg("token");
-                info!("Executing project_connect with token length: {}", token.len());
-                
-                serde_json::json!({
-                    "command": "project_connect",
-                    "args": {
-                        "token": token,
-                        "user_id": user_id
-                    }
-                })
-            },
-            "project_create_task" => {
-                let description: String = context.command.arg("description");
-                info!("Executing project_create_task with description: {}", description);
-                
-                serde_json::json!({
-                    "command": "project_create_task",
-                    "args": {
-                        "description": description,
-                        "user_id": user_id
-                    }
-                })
-            },
-            "project_list_tasks" => {
-                info!("Executing project_list_tasks");
-                
-                serde_json::json!({
-                    "command": "project_list_tasks",
-                    "args": {
-                        "user_id": user_id
-                    }
-                })
-            },
-            _ => return Err(format!("Unknown command: {}", self.command_name))
-        };
+                });
 
-        let response = match self.http_client
-            .post(format!("{}/api/process_command", self.python_api_url))
-            .json(&payload)
-            .send()
-            .await {
-                Ok(resp) => resp,
-                Err(e) => return Err(format!("Failed to call Python API: {}", e)),
-            };
-        
-        // Store the status before moving response
-        let status = response.status();
-        
-        // Try to parse the response
-        if !status.is_success() {
-            match response.json::<PythonErrorResponse>().await {
-                Ok(err) => return Err(err.error),
-                Err(_) => return Err(format!("Python API returned error status: {}", status)),
-            }
+                let response = self.http_client
+                    .post(format!("{}/api/process_command", self.python_api_url))
+                    .json(&payload)
+                    .send()
+                    .await
+                    .map_err(|e| format!("Failed to call Python API: {}", e))?;
+
+                let status = response.status();
+                
+                if !status.is_success() {
+                    match response.json::<PythonErrorResponse>().await {
+                        Ok(err) => return Err(err.error),
+                        Err(_) => return Err(format!("Python API returned error status: {}", status)),
+                    }
+                }
+                
+                let bot_response = match response.json::<PythonBotResponse>().await {
+                    Ok(resp) => resp,
+                    Err(e) => return Err(format!("Failed to parse Python API response: {}", e)),
+                };
+                
+                let formatted_response = format!("*{}*\n{}", bot_response.bot_name, bot_response.text);
+                
+                let message = oc_client_factory
+                    .build(context)
+                    .send_text_message(formatted_response)
+                    .execute_then_return_message(|_, _| ());
+                
+                Ok(oc_bots_sdk::api::command::SuccessResult { message })
+            },
+            "project" => {
+                let command_text: String = context.command.arg("command");
+                let parts: Vec<&str> = command_text.splitn(2, ' ').collect();
+                
+                if parts.is_empty() {
+                    return Err("Please specify a project action".to_string());
+                }
+
+                let action = parts[0].trim().to_lowercase();
+                let params = parts.get(1).map(|s| s.trim()).unwrap_or("");
+
+                let payload = match action.as_str() {
+                    "connect" => serde_json::json!({
+                        "command": "project_connect",
+                        "args": {
+                            "token": params,
+                            "user_id": user_id
+                        }
+                    }),
+                    "list" => serde_json::json!({
+                        "command": "project_list_tasks",
+                        "args": {
+                            "user_id": user_id
+                        }
+                    }),
+                    "create" => serde_json::json!({
+                        "command": "project_create_task",
+                        "args": {
+                            "description": params,
+                            "user_id": user_id
+                        }
+                    }),
+                    _ => return Err("Unknown project action. Available actions: connect, list, create".to_string()),
+                };
+
+                let response = self.http_client
+                    .post(format!("{}/api/process_command", self.python_api_url))
+                    .json(&payload)
+                    .send()
+                    .await
+                    .map_err(|e| format!("Failed to call Python API: {}", e))?;
+
+                let status = response.status();
+                
+                if !status.is_success() {
+                    match response.json::<PythonErrorResponse>().await {
+                        Ok(err) => return Err(err.error),
+                        Err(_) => return Err(format!("Python API returned error status: {}", status)),
+                    }
+                }
+                
+                let bot_response = match response.json::<PythonBotResponse>().await {
+                    Ok(resp) => resp,
+                    Err(e) => return Err(format!("Failed to parse Python API response: {}", e)),
+                };
+                
+                let formatted_response = format!("*{}*\n{}", bot_response.bot_name, bot_response.text);
+                
+                let message = oc_client_factory
+                    .build(context)
+                    .send_text_message(formatted_response)
+                    .execute_then_return_message(|_, _| ());
+                
+                Ok(oc_bots_sdk::api::command::SuccessResult { message })
+            },
+            _ => return Err("Unknown command".to_string()),
         }
-        
-        let bot_response = match response.json::<PythonBotResponse>().await {
-            Ok(resp) => resp,
-            Err(e) => return Err(format!("Failed to parse Python API response: {}", e)),
-        };
-        
-        let formatted_response = format!("*{}*\n{}", bot_response.bot_name, bot_response.text);
-        
-        let message = oc_client_factory
-            .build(context)
-            .send_text_message(formatted_response)
-            .execute_then_return_message(|_, _| ());
-        
-        Ok(oc_bots_sdk::api::command::SuccessResult { message })
     }
 }
 
