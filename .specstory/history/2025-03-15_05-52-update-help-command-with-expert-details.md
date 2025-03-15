@@ -668,6 +668,190 @@ This code adds a new `/github check_repo` command that allows users to check whi
 
 ---
 
+_**User**_
+
+I've just ran the command 
+
+/github 
+create Issue 1 
+
+But I am getting the error on OCs frontend command failed to execute 
+
+This is the error in my logs: 
+2025-03-15T08:50:40.470820Z  INFO infoundr_bot: === Command Execution Start ===
+2025-03-15T08:50:40.471549Z  INFO infoundr_bot: Headers: {"host": "localhost:13457", "connection": "keep-alive", "content-length": "0", "user-agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/134.0.0.0 Safari/537.36", "content-type": "text/plain", "x-oc-jwt": "eyJhbGciOiJFUzI1NiJ9.eyJleHAiOjE3NDIwMjg5MzksImNsYWltX3R5cGUiOiJCb3RBY3Rpb25CeUNvbW1hbmQiLCJib3RfYXBpX2dhdGV3YXkiOiJjdGl5YS1wZWFhYS1hYWFhYS1xYWFqYS1jYWkiLCJib3QiOiJtZWRwdy0yd2szMi1kbHI0Zy1lbmN2cSIsInNjb3BlIjp7IkNoYXQiOnsiY2hhdCI6eyJHcm91cCI6ImR6aDIyLW51YWFhLWFhYWFhLXFhYW9hLWNhaSJ9LCJtZXNzYWdlX2lkIjoiMTM3OTAxNDQ1MTI3OTg5NDI1MzAifX0sImdyYW50ZWRfcGVybWlzc2lvbnMiOnsibWVzc2FnZSI6MX0sImNvbW1hbmQiOnsibmFtZSI6ImdpdGh1YiIsImFyZ3MiOlt7Im5hbWUiOiJjb21tYW5kIiwidmFsdWUiOnsiU3RyaW5nIjoiY3JlYXRlIElzc3N1ZSAxIn19XSwiaW5pdGlhdG9yIjoiZGNjZzcteG1hYWEtYWFhYWEtcWFhbXEtY2FpIiwibWV0YSI6eyJ0aW1lem9uZSI6IkFmcmljYS9OYWlyb2JpIiwibGFuZ3VhZ2UiOiJlbiJ9fX0.x0dJnt6luGMe-zwBCNBWCLKp_X_7c0-xrnbz5oSH0aTOZsQRuEULa74-5IXev0SraJzIBoLK8KH3n3IEcmNKzQ", "accept": "*/*", "origin": "http://localhost:5001", "sec-fetch-site": "same-site", "sec-fetch-mode": "cors", "sec-fetch-dest": "empty", "referer": "http://localhost:5001/", "accept-encoding": "gzip, deflate, br, zstd", "accept-language": "en-US,en;q=0.9"}
+2025-03-15T08:50:40.472231Z  INFO infoundr_bot: Found JWT in x-oc-jwt header
+2025-03-15T08:50:40.472251Z  INFO infoundr_bot: JWT length: 719
+2025-03-15T08:50:40.506202Z  INFO infoundr_bot: Creating new issue...
+2025-03-15T08:50:40.506989Z  INFO infoundr_bot: Command execution result: InternalError(CommandError("Please provide title in quotes: create \"Issue title\" \"Description\""))
+2025-03-15T08:50:40.507006Z  INFO infoundr_bot: === Command Execution End ===
+2025-03-15T08:50:40.507011Z ERROR infoundr_bot: Internal error: CommandError("Please provide title in quotes: create \"Issue title\" \"Description\"")
+2025-03-15T08:50:40.507539Z ERROR tower_http::trace::on_failure: response failed classification=Status code: 500 Internal Server Error latency=39 ms
+
+Let's have a better way of error handling, we have the bot return a proper message
+
+---
+
+_**Assistant**_
+
+To improve error handling and provide a more user-friendly error message when the command format is incorrect, you can modify the error handling logic in your command execution function. Here's how you can update the code to return a proper message to the user:
+
+### Rust Command Execution
+
+Update the `execute` method to handle the error and return a user-friendly message:
+
+```rust
+async fn execute(
+    &self,
+    context: oc_bots_sdk::types::BotCommandContext,
+    oc_client_factory: &ClientFactory<AgentRuntime>,
+) -> Result<oc_bots_sdk::api::command::SuccessResult, String> {
+    let user_id = context.command.initiator.to_string();
+    let command_text: String = context.command.arg("command");
+    let parts: Vec<&str> = command_text.splitn(2, ' ').collect();
+    
+    if parts.is_empty() {
+        return Err("Please specify a GitHub action".to_string());
+    }
+
+    let action = parts[0].trim().to_lowercase();
+    let params = parts.get(1).map(|s| s.trim()).unwrap_or("");
+
+    // Set processing message based on action
+    let processing_message = match action.as_str() {
+        "connect" => "Connecting to GitHub...",
+        "list" => "Fetching your repositories...",
+        "select" => "Selecting repository...",
+        "create" => "Creating new issue...",
+        "list_issues" => "Fetching issues...",
+        "list_prs" => "Fetching pull requests...",
+        "check_repo" => "Checking connected repository...",
+        _ => "Processing GitHub command...",
+    };
+    info!("{}", processing_message);
+
+    let payload = match action.as_str() {
+        "create" => {
+            let parts: Vec<&str> = params.splitn(2, '"').collect();
+            if parts.len() < 2 {
+                let error_message = "Please provide the issue title and description in quotes: create \"Issue title\" \"Description\"";
+                let message = oc_client_factory
+                    .build(context)
+                    .send_text_message(error_message.to_string())
+                    .execute_then_return_message(|_, _| ());
+                return Ok(oc_bots_sdk::api::command::SuccessResult { message });
+            }
+            json!({
+                "command": "github_create_issue",
+                "args": {
+                    "title": parts[1],
+                    "body": parts.get(3).unwrap_or(&""),
+                    "user_id": user_id
+                }
+            })
+        },
+        // ... existing payloads ...
+    };
+
+    // ... existing request handling logic ...
+}
+```
+
+### Explanation
+
+- **Error Handling**: When the `create` action is detected, the code checks if the parameters are correctly formatted with quotes. If not, it sends a user-friendly error message back to the user.
+- **User Feedback**: The error message clearly instructs the user on the correct format to use for the command, helping them correct their input.
+
+You can manually integrate this updated error handling logic into your existing code. This will ensure that users receive clear instructions when they make a mistake in the command format.
+
+---
+
+_**User**_
+
+Is there a better way of doing this without the quotes, it's very confusing 
+
+---
+
+_**Assistant**_
+
+
+
+Certainly! To simplify the command input and avoid the need for quotes, you can change the way the command parameters are parsed. Instead of requiring quotes, you can use a delimiter like a double dash `--` to separate the title and description. Here's how you can implement this:
+
+### Updated Command Parsing
+
+Modify the `execute` method to handle the new format:
+
+```rust
+async fn execute(
+    &self,
+    context: oc_bots_sdk::types::BotCommandContext,
+    oc_client_factory: &ClientFactory<AgentRuntime>,
+) -> Result<oc_bots_sdk::api::command::SuccessResult, String> {
+    let user_id = context.command.initiator.to_string();
+    let command_text: String = context.command.arg("command");
+    let parts: Vec<&str> = command_text.splitn(2, ' ').collect();
+    
+    if parts.is_empty() {
+        return Err("Please specify a GitHub action".to_string());
+    }
+
+    let action = parts[0].trim().to_lowercase();
+    let params = parts.get(1).map(|s| s.trim()).unwrap_or("");
+
+    // Set processing message based on action
+    let processing_message = match action.as_str() {
+        "connect" => "Connecting to GitHub...",
+        "list" => "Fetching your repositories...",
+        "select" => "Selecting repository...",
+        "create" => "Creating new issue...",
+        "list_issues" => "Fetching issues...",
+        "list_prs" => "Fetching pull requests...",
+        "check_repo" => "Checking connected repository...",
+        _ => "Processing GitHub command...",
+    };
+    info!("{}", processing_message);
+
+    let payload = match action.as_str() {
+        "create" => {
+            let parts: Vec<&str> = params.splitn(2, " -- ").collect();
+            if parts.len() < 2 {
+                let error_message = "Please provide the issue title and description separated by ' -- ': create Issue title -- Description";
+                let message = oc_client_factory
+                    .build(context)
+                    .send_text_message(error_message.to_string())
+                    .execute_then_return_message(|_, _| ());
+                return Ok(oc_bots_sdk::api::command::SuccessResult { message });
+            }
+            json!({
+                "command": "github_create_issue",
+                "args": {
+                    "title": parts[0].trim(),
+                    "body": parts[1].trim(),
+                    "user_id": user_id
+                }
+            })
+        },
+        // ... existing payloads ...
+    };
+
+    // ... existing request handling logic ...
+}
+```
+
+### Explanation
+
+- **Delimiter**: The command now uses `--` as a delimiter to separate the issue title and description. This is more intuitive and avoids the confusion of using quotes.
+- **Error Message**: The error message has been updated to reflect the new format, guiding users to use the `--` delimiter.
+
+### Example Usage
+
+- To create an issue, the user would input: `/github create Issue title -- Description`
+
+This approach simplifies the command input and should make it easier for users to understand and use. You can manually integrate this updated logic into your existing code.
+
+---
+
 
 
 ---

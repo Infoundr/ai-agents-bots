@@ -413,7 +413,7 @@ impl BotCommandHandler {
                         "• connect <token> - Connect your GitHub account\n" +
                         "• list - List your repositories\n" +
                         "• select <owner/repo> - Select a repository to work with\n" +
-                        "• create \"Issue title\" \"Issue description\" - Create a new issue\n" +
+                        "• create Issue title -- Description - Create a new issue\n" +
                         "• list_issues [open/closed] - List repository issues\n" +
                         "• list_prs [open/closed] - List pull requests\n" +
                         "• check_repo - Check the currently connected repository"),
@@ -711,15 +711,20 @@ impl oc_bots_sdk::api::command::CommandHandler<AgentRuntime> for BotCommandHandl
                         }
                     }),
                     "create" => {
-                        let parts: Vec<&str> = params.splitn(2, '"').collect();
+                        let parts: Vec<&str> = params.splitn(2, " -- ").collect();
                         if parts.len() < 2 {
-                            return Err("Please provide title in quotes: create \"Issue title\" \"Description\"".to_string());
+                            let error_message = "Please provide the issue title and description separated by ' -- ': create Issue title -- Description";
+                            let message = oc_client_factory
+                                .build(context)
+                                .send_text_message(error_message.to_string())
+                                .execute_then_return_message(|_, _| ());
+                            return Ok(oc_bots_sdk::api::command::SuccessResult { message });
                         }
                         json!({
                             "command": "github_create_issue",
                             "args": {
-                                "title": parts[1],
-                                "body": parts.get(3).unwrap_or(&""),
+                                "title": parts[0].trim(),
+                                "body": parts[1].trim(),
                                 "user_id": user_id
                             }
                         })
