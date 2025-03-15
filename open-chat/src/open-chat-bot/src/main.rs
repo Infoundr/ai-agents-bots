@@ -10,7 +10,7 @@ use dotenv::dotenv;
 use oc_bots_sdk::api::command::{CommandHandlerRegistry, CommandResponse};
 use oc_bots_sdk::api::definition::{
     BotCommandDefinition, BotCommandParam, BotCommandParamType, BotDefinition, BotPermissions,
-    MessagePermission, StringParam,
+    MessagePermission, StringParam, BotCommandOptionChoice,
 };
 use oc_bots_sdk::oc_api::client_factory::ClientFactory;
 use oc_bots_sdk_offchain::env;
@@ -23,6 +23,7 @@ use tower_http::cors::CorsLayer;
 use tower_http::trace::TraceLayer;
 use tracing::{info, error};
 use tracing_subscriber::fmt::format::FmtSpan;
+use serde_json::json;
 
 mod config;
 
@@ -129,6 +130,38 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         http_client.clone(),
     );
     commands = commands.register(project_handler);
+
+    // Register the help command
+    let help_handler = BotCommandHandler::new(
+        "help".to_string(),
+        "Help Assistant".to_string(),
+        python_api_url.clone(),
+        http_client.clone(),
+    );
+    commands = commands.register(help_handler);
+
+    // Register GitHub commands
+    let github_commands = vec![
+        ("github_connect", "GitHub Assistant"),
+        ("github_list_repos", "GitHub Assistant"),
+        ("github_select_repo", "GitHub Assistant"),
+        ("github_create_issue", "GitHub Assistant"),
+        ("github_list_issues", "GitHub Assistant"),
+        ("github_list_prs", "GitHub Assistant"),
+    ];
+
+    for (command_name, bot_name) in github_commands {
+        info!("Registering command: {}", command_name);
+        
+        let handler = BotCommandHandler::new(
+            command_name.to_string(),
+            bot_name.to_string(),
+            python_api_url.clone(),
+            http_client.clone(),
+        );
+        
+        commands = commands.register(handler);
+    }
 
     // Create app state
     let app_state = AppState {
@@ -334,18 +367,12 @@ impl BotCommandHandler {
         let definition = match command_name.as_str() {
             "ask" => BotCommandDefinition {
                 name: command_name.clone(),
-                description: Some("Ask our AI experts for advice".to_string()),
-                placeholder: Some("Processing your question...".to_string()),
+                description: Some("Ask an AI expert for help: Benny, Felix, or Sheila".to_string()),
+                placeholder: Some("Asking expert...".to_string()),
                 params: vec![BotCommandParam {
                     name: "message".to_string(),
-                    description: Some(
-                        "Available Experts:\n\
-                        • Benny - Fintech & Fundraising Expert\n\
-                        • Sheila - Marketing & Growth Expert\n\
-                        • Caleb - Partnerships & Tech Expert\n\n\
-                        Example: Benny - How should I structure my funding round?"
-                    .to_string()),
-                    placeholder: Some("[Expert Name] - [Your Question]".to_string()),
+                    description: Some("Format: [Expert Name] - [Your Question]".to_string()),
+                    placeholder: Some("e.g., Benny - How do I validate my startup idea?".to_string()),
                     required: true,
                     param_type: BotCommandParamType::StringParam(StringParam {
                         min_length: 1,
@@ -377,6 +404,174 @@ impl BotCommandHandler {
                         max_length: 10000,
                         choices: Vec::new(),
                         multi_line: true,
+                    }),
+                }],
+                permissions: BotPermissions::from_message_permission(MessagePermission::Text),
+                default_role: None,
+            },
+            "help" => BotCommandDefinition {
+                name: command_name.clone(),
+                description: Some("Get help and list of available commands".to_string()),
+                placeholder: Some("Processing...".to_string()),
+                params: vec![],
+                permissions: BotPermissions::from_message_permission(MessagePermission::Text),
+                default_role: None,
+            },
+            "github" => BotCommandDefinition {
+                name: command_name.clone(),
+                description: Some("Manage GitHub repositories and issues".to_string()),
+                placeholder: Some("Processing your request...".to_string()),
+                params: vec![BotCommandParam {
+                    name: "command".to_string(),
+                    description: Some("Available commands:\n".to_string() + 
+                        "• connect <token> - Connect your GitHub account\n" +
+                        "• list - List your repositories\n" +
+                        "• select <owner/repo> - Select a repository to work with\n" +
+                        "• create \"Issue title\" \"Issue description\" - Create a new issue\n" +
+                        "• list_issues [open/closed] - List repository issues\n" +
+                        "• list_prs [open/closed] - List pull requests"),
+                    placeholder: Some("[command] [parameters]".to_string()),
+                    required: true,
+                    param_type: BotCommandParamType::StringParam(StringParam {
+                        min_length: 1,
+                        max_length: 10000,
+                        choices: Vec::new(),
+                        multi_line: true,
+                    }),
+                }],
+                permissions: BotPermissions::from_message_permission(MessagePermission::Text),
+                default_role: None,
+            },
+            "github_connect" => BotCommandDefinition {
+                name: command_name.clone(),
+                description: Some("Connect your GitHub account".to_string()),
+                placeholder: Some("Connecting to GitHub...".to_string()),
+                params: vec![BotCommandParam {
+                    name: "token".to_string(),
+                    description: Some("Your GitHub Personal Access Token".to_string()),
+                    placeholder: Some("Paste your token here".to_string()),
+                    required: true,
+                    param_type: BotCommandParamType::StringParam(StringParam {
+                        min_length: 1,
+                        max_length: 1000,
+                        choices: Vec::new(),
+                        multi_line: false,
+                    }),
+                }],
+                permissions: BotPermissions::from_message_permission(MessagePermission::Text),
+                default_role: None,
+            },
+            "github_list_repos" => BotCommandDefinition {
+                name: command_name.clone(),
+                description: Some("List your GitHub repositories".to_string()),
+                placeholder: Some("Fetching repositories...".to_string()),
+                params: vec![],
+                permissions: BotPermissions::from_message_permission(MessagePermission::Text),
+                default_role: None,
+            },
+            "github_select_repo" => BotCommandDefinition {
+                name: command_name.clone(),
+                description: Some("Select a GitHub repository to work with".to_string()),
+                placeholder: Some("Selecting repository...".to_string()),
+                params: vec![BotCommandParam {
+                    name: "repo_name".to_string(),
+                    description: Some("Repository name (format: owner/repo)".to_string()),
+                    placeholder: Some("e.g., octocat/Hello-World".to_string()),
+                    required: true,
+                    param_type: BotCommandParamType::StringParam(StringParam {
+                        min_length: 1,
+                        max_length: 1000,
+                        choices: Vec::new(),
+                        multi_line: false,
+                    }),
+                }],
+                permissions: BotPermissions::from_message_permission(MessagePermission::Text),
+                default_role: None,
+            },
+            "github_create_issue" => BotCommandDefinition {
+                name: command_name.clone(),
+                description: Some("Create a new issue in the selected repository".to_string()),
+                placeholder: Some("Creating issue...".to_string()),
+                params: vec![
+                    BotCommandParam {
+                        name: "title".to_string(),
+                        description: Some("Issue title".to_string()),
+                        placeholder: Some("Enter issue title".to_string()),
+                        required: true,
+                        param_type: BotCommandParamType::StringParam(StringParam {
+                            min_length: 1,
+                            max_length: 1000,
+                            choices: Vec::new(),
+                            multi_line: false,
+                        }),
+                    },
+                    BotCommandParam {
+                        name: "body".to_string(),
+                        description: Some("Issue description".to_string()),
+                        placeholder: Some("Enter issue description".to_string()),
+                        required: false,
+                        param_type: BotCommandParamType::StringParam(StringParam {
+                            min_length: 0,
+                            max_length: 10000,
+                            choices: Vec::new(),
+                            multi_line: true,
+                        }),
+                    },
+                ],
+                permissions: BotPermissions::from_message_permission(MessagePermission::Text),
+                default_role: None,
+            },
+            "github_list_issues" => BotCommandDefinition {
+                name: command_name.clone(),
+                description: Some("List issues in the selected repository".to_string()),
+                placeholder: Some("Fetching issues...".to_string()),
+                params: vec![BotCommandParam {
+                    name: "state".to_string(),
+                    description: Some("Issue state (open/closed)".to_string()),
+                    placeholder: Some("open".to_string()),
+                    required: false,
+                    param_type: BotCommandParamType::StringParam(StringParam {
+                        min_length: 0,
+                        max_length: 10,
+                        choices: vec![
+                            BotCommandOptionChoice {
+                                name: "open".to_string(),
+                                value: "open".to_string(),
+                            },
+                            BotCommandOptionChoice {
+                                name: "closed".to_string(),
+                                value: "closed".to_string(),
+                            },
+                        ],
+                        multi_line: false,
+                    }),
+                }],
+                permissions: BotPermissions::from_message_permission(MessagePermission::Text),
+                default_role: None,
+            },
+            "github_list_prs" => BotCommandDefinition {
+                name: command_name.clone(),
+                description: Some("List pull requests in the selected repository".to_string()),
+                placeholder: Some("Fetching pull requests...".to_string()),
+                params: vec![BotCommandParam {
+                    name: "state".to_string(),
+                    description: Some("PR state (open/closed)".to_string()),
+                    placeholder: Some("open".to_string()),
+                    required: false,
+                    param_type: BotCommandParamType::StringParam(StringParam {
+                        min_length: 0,
+                        max_length: 10,
+                        choices: vec![
+                            BotCommandOptionChoice {
+                                name: "open".to_string(),
+                                value: "open".to_string(),
+                            },
+                            BotCommandOptionChoice {
+                                name: "closed".to_string(),
+                                value: "closed".to_string(),
+                            },
+                        ],
+                        multi_line: false,
                     }),
                 }],
                 permissions: BotPermissions::from_message_permission(MessagePermission::Text),
@@ -419,23 +614,47 @@ impl oc_bots_sdk::api::command::CommandHandler<AgentRuntime> for BotCommandHandl
         match self.command_name.as_str() {
             "ask" => {
                 let message: String = context.command.arg("message");
-                let parts: Vec<&str> = message.splitn(2, '-').collect();
+                info!("Executing ask command with message: {}", message);
 
+                // Parse the expert name and question
+                let parts: Vec<&str> = message.splitn(2, '-').collect();
                 if parts.len() != 2 {
-                    return Err("Please use the format: [Expert Name] - [Your Question]".to_string());
+                    let help_message = oc_client_factory
+                        .build(context)
+                        .send_text_message(
+                            "Please use the format: [Expert Name] - [Your Question]\n\n\
+                            Available experts:\n\
+                            • Benny - Backend & Business Expert\n\
+                            • Felix - Frontend Expert\n\
+                            • Dean - DevOps Expert\n\
+                            \nExample: `Benny - How do I validate my startup idea?`".to_string()
+                        )
+                        .execute_then_return_message(|_, _| ());
+
+                    return Ok(oc_bots_sdk::api::command::SuccessResult { message: help_message });
                 }
 
-                let expert_name = parts[0].trim().to_lowercase();
+                let expert = parts[0].trim().to_lowercase();
                 let question = parts[1].trim();
 
-                // Set processing message based on expert
-                let processing_message = format!("Asking {}...", expert_name);
-                info!("{}", processing_message);
+                // Validate expert name
+                let valid_experts = vec!["benny", "felix", "dean"];
+                if !valid_experts.contains(&expert.as_str()) {
+                    let error_message = oc_client_factory
+                        .build(context)
+                        .send_text_message(
+                            format!("Unknown expert '{}'. Available experts:\n\
+                            • Benny - Backend & Business Expert\n\
+                            • Felix - Frontend Expert\n\
+                            • Dean - DevOps Expert", parts[0].trim())
+                        )
+                        .execute_then_return_message(|_, _| ());
 
-                let command_name = format!("ask_{}", expert_name);
-                
+                    return Ok(oc_bots_sdk::api::command::SuccessResult { message: error_message });
+                }
+
                 let payload = serde_json::json!({
-                    "command": command_name,
+                    "command": format!("ask_{}", expert),
                     "args": {
                         "question": question,
                         "user_id": user_id
@@ -525,6 +744,395 @@ impl oc_bots_sdk::api::command::CommandHandler<AgentRuntime> for BotCommandHandl
 
                 let status = response.status();
                 
+                if !status.is_success() {
+                    match response.json::<PythonErrorResponse>().await {
+                        Ok(err) => return Err(err.error),
+                        Err(_) => return Err(format!("Python API returned error status: {}", status)),
+                    }
+                }
+                
+                let bot_response = match response.json::<PythonBotResponse>().await {
+                    Ok(resp) => resp,
+                    Err(e) => return Err(format!("Failed to parse Python API response: {}", e)),
+                };
+                
+                let formatted_response = format!("*{}*\n{}", bot_response.bot_name, bot_response.text);
+                
+                let message = oc_client_factory
+                    .build(context)
+                    .send_text_message(formatted_response)
+                    .execute_then_return_message(|_, _| ());
+                
+                Ok(oc_bots_sdk::api::command::SuccessResult { message })
+            },
+            "help" => {
+                let help_text = "🤖 **Infoundr: The Genius AI Co-Founder and Assistant**\n\n".to_string() +
+                    "I'm your AI-powered assistant that can help with various tasks:\n\n" +
+                    
+                    "**Ask AI Experts** 📚\n" +
+                    "You can ask any question to our AI experts, and they will answer you in a friendly and engaging way.\n" +
+                    "/ask [Expert Name] [Your Question]\n" +
+                    "Available experts:\n\
+                    • Beniah (Founder of Payd) - Bot Name: Benny\n\
+                    • Innocent Mangothe (Founder of Startinev) - Bot Name: Uncle Startups\n\
+                    • Dean Gichuki (Founder of Quick API) - Bot Name: Dean\n\
+                    • Sheila Waswa (Founder of Chasing Maverick) - Bot Name: Sheila\n\
+                    • Felix Macharia (Founder of KotaniPay) - Bot Name: Felix\n\n" +
+                    
+                    "**Project Management** 📋\n" +
+                    "/project connect - Connect Asana account\n" +
+                    "/project create - Create new task\n" +
+                    "/project list - List your tasks\n\n" +
+                    
+                    "**GitHub Integration** 💻\n" +
+                    "/github connect - Connect GitHub account\n" +
+                    "/github list - List repositories\n" +
+                    "/github select - Select repository\n" +
+                    "/github create - Create issue\n" +
+                    "/github list_issues - List issues\n" +
+                    "/github list_prs - List pull requests\n\n" +
+                    
+                    "For more details on any command, use it with --help\n" +
+                    "Example: /github --help";
+
+                let message = oc_client_factory
+                    .build(context)
+                    .send_text_message(help_text)
+                    .execute_then_return_message(|_, _| ());
+
+                Ok(oc_bots_sdk::api::command::SuccessResult { message })
+            },
+            "github" => {
+                let command_text: String = context.command.arg("command");
+                let parts: Vec<&str> = command_text.splitn(2, ' ').collect();
+                
+                if parts.is_empty() {
+                    return Err("Please specify a GitHub action".to_string());
+                }
+
+                let action = parts[0].trim().to_lowercase();
+                let params = parts.get(1).map(|s| s.trim()).unwrap_or("");
+
+                // Set processing message based on action
+                let processing_message = match action.as_str() {
+                    "connect" => "Connecting to GitHub...",
+                    "list" => "Fetching your repositories...",
+                    "select" => "Selecting repository...",
+                    "create" => "Creating new issue...",
+                    "list_issues" => "Fetching issues...",
+                    "list_prs" => "Fetching pull requests...",
+                    _ => "Processing GitHub command...",
+                };
+                info!("{}", processing_message);
+
+                let payload = match action.as_str() {
+                    "connect" => json!({
+                        "command": "github_connect",
+                        "args": {
+                            "token": params,
+                            "user_id": user_id
+                        }
+                    }),
+                    "list" => json!({
+                        "command": "github_list_repos",
+                        "args": {
+                            "user_id": user_id
+                        }
+                    }),
+                    "select" => json!({
+                        "command": "github_select_repo",
+                        "args": {
+                            "repo_name": params,
+                            "user_id": user_id
+                        }
+                    }),
+                    "create" => {
+                        let parts: Vec<&str> = params.splitn(2, '"').collect();
+                        if parts.len() < 2 {
+                            return Err("Please provide title in quotes: create \"Issue title\" \"Description\"".to_string());
+                        }
+                        json!({
+                            "command": "github_create_issue",
+                            "args": {
+                                "title": parts[1],
+                                "body": parts.get(3).unwrap_or(&""),
+                                "user_id": user_id
+                            }
+                        })
+                    },
+                    "list_issues" => json!({
+                        "command": "github_list_issues",
+                        "args": {
+                            "state": if params.is_empty() { "open" } else { params },
+                            "user_id": user_id
+                        }
+                    }),
+                    "list_prs" => json!({
+                        "command": "github_list_prs",
+                        "args": {
+                            "state": if params.is_empty() { "open" } else { params },
+                            "user_id": user_id
+                        }
+                    }),
+                    _ => return Err("Unknown GitHub action. Available actions: connect, list, select, create, list_issues, list_prs".to_string()),
+                };
+
+                let response = self.http_client
+                    .post(format!("{}/api/process_command", self.python_api_url))
+                    .json(&payload)
+                    .send()
+                    .await
+                    .map_err(|e| format!("Failed to call Python API: {}", e))?;
+
+                let status = response.status();
+                
+                if !status.is_success() {
+                    match response.json::<PythonErrorResponse>().await {
+                        Ok(err) => return Err(err.error),
+                        Err(_) => return Err(format!("Python API returned error status: {}", status)),
+                    }
+                }
+                
+                let bot_response = match response.json::<PythonBotResponse>().await {
+                    Ok(resp) => resp,
+                    Err(e) => return Err(format!("Failed to parse Python API response: {}", e)),
+                };
+                
+                let formatted_response = format!("*{}*\n{}", bot_response.bot_name, bot_response.text);
+                
+                let message = oc_client_factory
+                    .build(context)
+                    .send_text_message(formatted_response)
+                    .execute_then_return_message(|_, _| ());
+                
+                Ok(oc_bots_sdk::api::command::SuccessResult { message })
+            },
+            "github_connect" => {
+                let token: String = context.command.arg("token");
+                info!("Executing github_connect with token length: {}", token.len());
+                
+                let payload = serde_json::json!({
+                    "command": "github_connect",
+                    "args": {
+                        "token": token,
+                        "user_id": user_id
+                    }
+                });
+
+                let response = self.http_client
+                    .post(format!("{}/api/process_command", self.python_api_url))
+                    .json(&payload)
+                    .send()
+                    .await
+                    .map_err(|e| format!("Failed to call Python API: {}", e))?;
+
+                let status = response.status();
+                
+                if !status.is_success() {
+                    match response.json::<PythonErrorResponse>().await {
+                        Ok(err) => return Err(err.error),
+                        Err(_) => return Err(format!("Python API returned error status: {}", status)),
+                    }
+                }
+                
+                let bot_response = match response.json::<PythonBotResponse>().await {
+                    Ok(resp) => resp,
+                    Err(e) => return Err(format!("Failed to parse Python API response: {}", e)),
+                };
+                
+                let formatted_response = format!("*{}*\n{}", bot_response.bot_name, bot_response.text);
+                
+                let message = oc_client_factory
+                    .build(context)
+                    .send_text_message(formatted_response)
+                    .execute_then_return_message(|_, _| ());
+                
+                Ok(oc_bots_sdk::api::command::SuccessResult { message })
+            },
+            "github_list_repos" => {
+                info!("Executing github_list_repos");
+                
+                let payload = serde_json::json!({
+                    "command": "github_list_repos",
+                    "args": {
+                        "user_id": user_id
+                    }
+                });
+
+                let response = self.http_client
+                    .post(format!("{}/api/process_command", self.python_api_url))
+                    .json(&payload)
+                    .send()
+                    .await
+                    .map_err(|e| format!("Failed to call Python API: {}", e))?;
+
+                let status = response.status();
+                if !status.is_success() {
+                    match response.json::<PythonErrorResponse>().await {
+                        Ok(err) => return Err(err.error),
+                        Err(_) => return Err(format!("Python API returned error status: {}", status)),
+                    }
+                }
+                
+                let bot_response = match response.json::<PythonBotResponse>().await {
+                    Ok(resp) => resp,
+                    Err(e) => return Err(format!("Failed to parse Python API response: {}", e)),
+                };
+                
+                let formatted_response = format!("*{}*\n{}", bot_response.bot_name, bot_response.text);
+                
+                let message = oc_client_factory
+                    .build(context)
+                    .send_text_message(formatted_response)
+                    .execute_then_return_message(|_, _| ());
+                
+                Ok(oc_bots_sdk::api::command::SuccessResult { message })
+            },
+            "github_select_repo" => {
+                let repo_name: String = context.command.arg("repo_name");
+                info!("Executing github_select_repo with repo: {}", repo_name);
+                
+                let payload = serde_json::json!({
+                    "command": "github_select_repo",
+                    "args": {
+                        "repo_name": repo_name,
+                        "user_id": user_id
+                    }
+                });
+
+                let response = self.http_client
+                    .post(format!("{}/api/process_command", self.python_api_url))
+                    .json(&payload)
+                    .send()
+                    .await
+                    .map_err(|e| format!("Failed to call Python API: {}", e))?;
+
+                let status = response.status();
+                if !status.is_success() {
+                    match response.json::<PythonErrorResponse>().await {
+                        Ok(err) => return Err(err.error),
+                        Err(_) => return Err(format!("Python API returned error status: {}", status)),
+                    }
+                }
+                
+                let bot_response = match response.json::<PythonBotResponse>().await {
+                    Ok(resp) => resp,
+                    Err(e) => return Err(format!("Failed to parse Python API response: {}", e)),
+                };
+                
+                let formatted_response = format!("*{}*\n{}", bot_response.bot_name, bot_response.text);
+                
+                let message = oc_client_factory
+                    .build(context)
+                    .send_text_message(formatted_response)
+                    .execute_then_return_message(|_, _| ());
+                
+                Ok(oc_bots_sdk::api::command::SuccessResult { message })
+            },
+            "github_create_issue" => {
+                let title: String = context.command.arg("title");
+                let body: String = context.command.arg("body");
+                info!("Executing github_create_issue with title: {}", title);
+                
+                let payload = serde_json::json!({
+                    "command": "github_create_issue",
+                    "args": {
+                        "title": title,
+                        "body": body,
+                        "user_id": user_id
+                    }
+                });
+
+                let response = self.http_client
+                    .post(format!("{}/api/process_command", self.python_api_url))
+                    .json(&payload)
+                    .send()
+                    .await
+                    .map_err(|e| format!("Failed to call Python API: {}", e))?;
+
+                let status = response.status();
+                if !status.is_success() {
+                    match response.json::<PythonErrorResponse>().await {
+                        Ok(err) => return Err(err.error),
+                        Err(_) => return Err(format!("Python API returned error status: {}", status)),
+                    }
+                }
+                
+                let bot_response = match response.json::<PythonBotResponse>().await {
+                    Ok(resp) => resp,
+                    Err(e) => return Err(format!("Failed to parse Python API response: {}", e)),
+                };
+                
+                let formatted_response = format!("*{}*\n{}", bot_response.bot_name, bot_response.text);
+                
+                let message = oc_client_factory
+                    .build(context)
+                    .send_text_message(formatted_response)
+                    .execute_then_return_message(|_, _| ());
+                
+                Ok(oc_bots_sdk::api::command::SuccessResult { message })
+            },
+            "github_list_issues" => {
+                let state: String = context.command.arg("state");
+                info!("Executing github_list_issues with state: {}", state);
+                
+                let payload = serde_json::json!({
+                    "command": "github_list_issues",
+                    "args": {
+                        "state": if state.is_empty() { "open" } else { &state },
+                        "user_id": user_id
+                    }
+                });
+
+                let response = self.http_client
+                    .post(format!("{}/api/process_command", self.python_api_url))
+                    .json(&payload)
+                    .send()
+                    .await
+                    .map_err(|e| format!("Failed to call Python API: {}", e))?;
+
+                let status = response.status();
+                if !status.is_success() {
+                    match response.json::<PythonErrorResponse>().await {
+                        Ok(err) => return Err(err.error),
+                        Err(_) => return Err(format!("Python API returned error status: {}", status)),
+                    }
+                }
+                
+                let bot_response = match response.json::<PythonBotResponse>().await {
+                    Ok(resp) => resp,
+                    Err(e) => return Err(format!("Failed to parse Python API response: {}", e)),
+                };
+                
+                let formatted_response = format!("*{}*\n{}", bot_response.bot_name, bot_response.text);
+                
+                let message = oc_client_factory
+                    .build(context)
+                    .send_text_message(formatted_response)
+                    .execute_then_return_message(|_, _| ());
+                
+                Ok(oc_bots_sdk::api::command::SuccessResult { message })
+            },
+            "github_list_prs" => {
+                let state: String = context.command.arg("state");
+                info!("Executing github_list_prs with state: {}", state);
+                
+                let payload = serde_json::json!({
+                    "command": "github_list_prs",
+                    "args": {
+                        "state": if state.is_empty() { "open" } else { &state },
+                        "user_id": user_id
+                    }
+                });
+
+                let response = self.http_client
+                    .post(format!("{}/api/process_command", self.python_api_url))
+                    .json(&payload)
+                    .send()
+                    .await
+                    .map_err(|e| format!("Failed to call Python API: {}", e))?;
+
+                let status = response.status();
                 if !status.is_success() {
                     match response.json::<PythonErrorResponse>().await {
                         Ok(err) => return Err(err.error),
