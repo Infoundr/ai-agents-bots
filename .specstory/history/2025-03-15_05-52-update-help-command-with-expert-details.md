@@ -109,6 +109,139 @@ This update includes the specified experts and their roles, as requested. You ca
 
 ---
 
+_**User**_
+
+Now let's modify the project management section of the help command 
+
+This was the original one: 
+ *Task Management Commands:*\n\
+                1. First, connect your Asana account:\n\
+                   `/project_connect YOUR_TOKEN` - Get your token from https://app.asana.com/0/developer-console\n\n\
+                2. Then you can:\n\
+                   `/project_create_task` - Create a new task in Asana\n\
+                   `/project_list_tasks` - View your current tasks\n\n\
+
+Remember, just generate the code. No need to edit the file
+
+---
+
+_**Assistant**_
+
+Certainly! Here's the updated project management section for the help command:
+
+```rust
+"help" => {
+    let help_text = "🤖 **Infoundr: The Genius AI Co-Founder and Assistant**\n\n".to_string() +
+        "I'm your AI-powered assistant that can help with various tasks:\n\n" +
+        
+        "**Ask AI Experts** 📚\n" +
+        "You can ask any question to our AI experts, and they will answer you in a friendly and engaging way.\n" +
+        "/ask [Expert Name] [Your Question]\n" +
+        "Available experts:\n\
+        • Beniah (Founder of Payd) - Bot Name: Benny\n\
+        • Innocent Mangothe (Founder of Startinev) - Bot Name: Uncle Startups\n\
+        • Dean Gichuki (Founder of Quick API) - Bot Name: Dean\n\
+        • Sheila Waswa (Founder of Chasing Maverick) - Bot Name: Sheila\n\
+        • Felix Macharia (Founder of KotaniPay) - Bot Name: Felix\n\n" +
+        
+        "**Project Management** 📋\n" +
+        "*Task Management Commands:*\n\
+        1. First, connect your Asana account:\n\
+           `/project_connect YOUR_TOKEN` - Get your token from https://app.asana.com/0/developer-console\n\n\
+        2. Then you can:\n\
+           `/project_create_task` - Create a new task in Asana\n\
+           `/project_list_tasks` - View your current tasks\n\n" +
+        
+        "**GitHub Integration** 💻\n" +
+        "/github connect - Connect GitHub account\n" +
+        "/github list - List repositories\n" +
+        "/github select - Select repository\n" +
+        "/github create - Create issue\n" +
+        "/github list_issues - List issues\n" +
+        "/github list_prs - List pull requests\n\n" +
+        
+        "For more details on any command, use it with --help\n" +
+        "Example: /github --help";
+
+    let message = oc_client_factory
+        .build(context)
+        .send_text_message(help_text)
+        .execute_then_return_message(|_, _| ());
+
+    Ok(oc_bots_sdk::api::command::SuccessResult { message })
+},
+```
+
+You can manually insert this updated section into your file.
+
+---
+
+_**User**_
+
+This is how I want it to look like 
+
+But It has some syntax error. Help me solve it
+
+---
+
+_**Assistant**_
+
+Certainly! The syntax error in your string is likely due to the misplaced backslash at the end of the line. Here's the corrected version:
+
+```rust
+"**Project Management** 📋\n" +
+"*Task Management Commands:*\n\
+1. First, connect your Asana account:\n\
+   `/project connect YOUR_TOKEN` - Get your token from https://app.asana.com/0/developer-console\n\n\
+2. Create a new task:\n\
+   `/project create Task Name Task Description` - Create a new task in Asana\n\n\
+3. List your tasks:\n\
+   `/project list` - View your current tasks\n\n" +
+```
+
+The key change is removing the extra space and backslash at the end of the `*Task Management Commands:*` line. This should resolve any syntax issues. You can manually insert this corrected string into your file.
+
+---
+
+_**User**_
+
+I want to edit section 
+
+It should have the url for where someone can get their token from, which is: @https://github.com/settings/personal-access-tokens 
+
+Then tell someone they need to create a new token, and give it the  following accesses: 
+1. Click on generate new token on the top right section 
+2. Repository access set to: All repositories
+3. On repository permissions: Issues - set to read & write, Pull requests - set to read & write 
+
+
+---
+
+_**Assistant**_
+
+Certainly! Here's the updated GitHub Integration section with the instructions for generating a personal access token:
+
+```rust
+"**GitHub Integration** 💻\n" +
+"/github connect - Connect GitHub account\n" +
+"To connect, you'll need a personal access token. Get it from: https://github.com/settings/personal-access-tokens\n" +
+"Steps to create a new token:\n\
+1. Click on 'Generate new token' in the top right section.\n\
+2. Set 'Repository access' to: All repositories.\n\
+3. Under 'Repository permissions':\n\
+   - Issues: Set to read & write.\n\
+   - Pull requests: Set to read & write.\n\n" +
+"/github list - List repositories\n" +
+"/github select - Select repository\n" +
+"/github create - Create issue\n" +
+"/github list_issues - List issues\n" +
+"/github list_prs - List pull requests\n\n" +
+```
+
+This update includes the URL for obtaining a personal access token and detailed steps for setting the necessary permissions. You can manually insert this into your file.
+
+---
+
 
 
 ---

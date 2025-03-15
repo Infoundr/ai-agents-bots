@@ -771,7 +771,7 @@ impl oc_bots_sdk::api::command::CommandHandler<AgentRuntime> for BotCommandHandl
                     
                     "**Ask AI Experts** 📚\n" +
                     "You can ask any question to our AI experts, and they will answer you in a friendly and engaging way.\n" +
-                    "/ask [Expert Name] [Your Question]\n" +
+                    "`/ask [Expert Name] [Your Question]`\n" +
                     "Available experts:\n\
                     • Beniah (Founder of Payd) - Bot Name: Benny\n\
                     • Innocent Mangothe (Founder of Startinev) - Bot Name: Uncle Startups\n\
@@ -780,17 +780,28 @@ impl oc_bots_sdk::api::command::CommandHandler<AgentRuntime> for BotCommandHandl
                     • Felix Macharia (Founder of KotaniPay) - Bot Name: Felix\n\n" +
                     
                     "**Project Management** 📋\n" +
-                    "/project connect - Connect Asana account\n" +
-                    "/project create - Create new task\n" +
-                    "/project list - List your tasks\n\n" +
+                    "*Task Management Commands:*\n\
+                    1. First, connect your Asana account:\n\
+                    `/project connect YOUR_TOKEN` - Get your token from https://app.asana.com/0/developer-console\n\n\
+                    2. Create a new task:\n\
+                    `/project create Task Name Task Description` - Create a new task in Asana\n\n\
+                    3. List your tasks:\n\
+                    `/project list` - View your current tasks\n\n" +
                     
                     "**GitHub Integration** 💻\n" +
-                    "/github connect - Connect GitHub account\n" +
-                    "/github list - List repositories\n" +
-                    "/github select - Select repository\n" +
-                    "/github create - Create issue\n" +
-                    "/github list_issues - List issues\n" +
-                    "/github list_prs - List pull requests\n\n" +
+                    "`/github connect YOUR_TOKEN` - Connect GitHub account\n" +
+                    "To connect, you'll need a personal access token. Get it from: https://github.com/settings/personal-access-tokens\n" +
+                    "Steps to create a new token:\n\
+                    1. Click on 'Generate new token' in the top right section.\n\
+                    2. Set 'Repository access' to: All repositories.\n\
+                    3. Under 'Repository permissions':\n\
+                    - Issues: Set to read & write.\n\
+                    - Pull requests: Set to read & write.\n\n" +
+                    "`/github list` - List repositories\n" +
+                    "`/github select REPO_NAME` - Select repository\n" +
+                    "`/github create ISSUE_TITLE ISSUE_DESCRIPTION` - Create issue\n" +
+                    "`/github list_issues [open/closed]` - List issues\n" +
+                    "`/github list_prs [open/closed]` - List pull requests\n\n" +
                     
                     "For more details on any command, use it with --help\n" +
                     "Example: /github --help";
