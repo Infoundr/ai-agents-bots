@@ -178,7 +178,15 @@ def handle_github_command(command, args):
             github_creds = credential_store.get_github_credentials(user_id)
             if not github_creds:
                 return jsonify({
-                    "text": "⚠️ Please connect your GitHub account first using `/github connect YOUR_TOKEN`",
+                    "text": "⚠️ Please connect your GitHub account first using `/github connect YOUR_TOKEN`\n\n"
+                            "To get your token:\n"
+                            "1. Go to https://github.com/settings/personal-access-tokens\n"
+                            "2. Click on `Generate new token` in the top right section.\n"
+                            "3. Set `Repository access` to: All repositories.\n"
+                            "4. Under `Repository permissions`: \n"
+                            "   - Issues: Set to read & write.\n"
+                            "   - Pull requests: Set to read & write.\n"
+                            "5. Copy and use it with the connect command",
                     "bot_name": "GitHub Assistant"
                 })
             
@@ -204,7 +212,15 @@ def handle_github_command(command, args):
             github_creds = credential_store.get_github_credentials(user_id)
             if not github_creds:
                 return jsonify({
-                    "text": "⚠️ Please connect your GitHub account first",
+                    "text": "⚠️ Please connect your GitHub account first using `/github connect YOUR_TOKEN`\n\n"
+                            "To get your token:\n"
+                            "1. Go to https://github.com/settings/personal-access-tokens\n"
+                            "2. Click on `Generate new token` in the top right section.\n"
+                            "3. Set `Repository access` to: All repositories.\n"
+                            "4. Under `Repository permissions`: \n"
+                            "   - Issues: Set to read & write.\n"
+                            "   - Pull requests: Set to read & write.\n"
+                            "5. Copy and use it with the connect command",
                     "bot_name": "GitHub Assistant"
                 })
 
@@ -218,7 +234,11 @@ def handle_github_command(command, args):
             })
 
             return jsonify({
-                "text": f"✅ Selected repository: {repo['name']}\n{repo['url']}",
+                "text": f"✅ Selected repository: {repo['name']}\n{repo['url']}\n\n"
+                        "Next steps:\n"
+                        "• To create an issue, use: `/github create \"Issue title\" \"Issue description\"`\n"
+                        "• To list available pull requests, use: `/github list_prs`\n"
+                        "• To list issues, use: `/github list_issues`",
                 "bot_name": "GitHub Assistant"
             })
 
@@ -257,9 +277,13 @@ def handle_github_command(command, args):
             return jsonify({
                 "text": "⚠️ Please connect your GitHub account first using `/github connect YOUR_TOKEN`\n\n"
                         "To get your token:\n"
-                        "1. Go to https://github.com/settings/tokens\n"
-                        "2. Generate a new token with repo scope\n"
-                        "3. Copy and use it with the connect command",
+                        "1. Go to https://github.com/settings/personal-access-tokens\n"
+                        "2. Click on `Generate new token` in the top right section.\n"
+                        "3. Set `Repository access` to: All repositories.\n"
+                        "4. Under `Repository permissions`: \n"
+                        "   - Issues: Set to read & write.\n"
+                        "   - Pull requests: Set to read & write.\n"
+                        "5. Copy and use it with the connect command",
                 "bot_name": "GitHub Assistant"
             })
 
@@ -299,6 +323,18 @@ def handle_github_command(command, args):
                                  for pr in prs])
             return jsonify({
                 "text": f"Pull Requests ({state}):\n{prs_text}",
+                "bot_name": "GitHub Assistant"
+            })
+        
+        if command == "github_check_repo":
+            selected_repo = github_creds.get('selected_repo')
+            if not selected_repo:
+                return jsonify({
+                    "text": "No repository is currently selected. Use `/github select <repository_name>` to select one.",
+                    "bot_name": "GitHub Assistant"
+                })
+            return jsonify({
+                "text": f"Currently connected repository: {selected_repo}",
                 "bot_name": "GitHub Assistant"
             })
             

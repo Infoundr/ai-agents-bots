@@ -256,7 +256,415 @@ Generate the code for me and don't change any of my files
 
 _**Assistant**_
 
-Certainly! To consolidate the GitHub commands into a
+Certainly! To consolidate the GitHub commands into a single `/github` command, you can modify the command registration and handling logic. Here's how you can structure the code to achieve this:
+
+```rust
+// Register the unified GitHub command
+let github_handler = BotCommandHandler::new(
+    "github".to_string(),
+    "GitHub Assistant".to_string(),
+    python_api_url.clone(),
+    http_client.clone(),
+);
+commands = commands.register(github_handler);
+```
+
+In the `BotCommandHandler` implementation, update the `new` method to handle the unified GitHub command:
+
+```rust
+impl BotCommandHandler {
+    fn new(command_name: String, bot_name: String, python_api_url: String, http_client: ReqwestClient) -> Self {
+        let definition = match command_name.as_str() {
+            // ... existing command definitions ...
+            "github" => BotCommandDefinition {
+                name: command_name.clone(),
+                description: Some("Manage GitHub repositories and issues".to_string()),
+                placeholder: Some("Processing your request...".to_string()),
+                params: vec![BotCommandParam {
+                    name: "command".to_string(),
+                    description: Some("Available commands:\n".to_string() + 
+                        "• connect <token> - Connect your GitHub account\n" +
+                        "• list - List your repositories\n" +
+                        "• select <owner/repo> - Select a repository to work with\n" +
+                        "• create \"Issue title\" \"Issue description\" - Create a new issue\n" +
+                        "• list_issues [open/closed] - List repository issues\n" +
+                        "• list_prs [open/closed] - List pull requests"),
+                    placeholder: Some("[command] [parameters]".to_string()),
+                    required: true,
+                    param_type: BotCommandParamType::StringParam(StringParam {
+                        min_length: 1,
+                        max_length: 10000,
+                        choices: Vec::new(),
+                        multi_line: true,
+                    }),
+                }],
+                permissions: BotPermissions::from_message_permission(MessagePermission::Text),
+                default_role: None,
+            },
+            // ... other command definitions ...
+        };
+
+        Self {
+            command_name,
+            bot_name,
+            python_api_url,
+            http_client,
+            definition,
+        }
+    }
+}
+```
+
+In the `execute` method, handle the sub-commands based on user input:
+
+```rust
+async fn execute(
+    &self,
+    context: oc_bots_sdk::types::BotCommandContext,
+    oc_client_factory: &ClientFactory<AgentRuntime>,
+) -> Result<oc_bots_sdk::api::command::SuccessResult, String> {
+    let user_id = context.command.initiator.to_string();
+    let command_text: String = context.command.arg("command");
+    let parts: Vec<&str> = command_text.splitn(2, ' ').collect();
+    
+    if parts.is_empty() {
+        return Err("Please specify a GitHub action".to_string());
+    }
+
+    let action = parts[0].trim().to_lowercase();
+    let params = parts.get(1).map(|s| s.trim()).unwrap_or("");
+
+    // Set processing message based on action
+    let processing_message = match action.as_str() {
+        "connect" => "Connecting to GitHub...",
+        "list" => "Fetching your repositories...",
+        "select" => "Selecting repository...",
+        "create" => "Creating new issue...",
+        "list_issues" => "Fetching issues...",
+        "list_prs" => "Fetching pull requests...",
+        _ => "Processing GitHub command...",
+    };
+    info!("{}", processing_message);
+
+    let payload = match action.as_str() {
+        "connect" => json!({
+            "command": "github_connect",
+            "args": {
+                "token": params,
+                "user_id": user_id
+            }
+        }),
+        "list" => json!({
+            "command": "github_list_repos",
+            "args": {
+                "user_id": user_id
+            }
+        }),
+        "select" => json!({
+            "command": "github_select_repo",
+            "args": {
+                "repo_name": params,
+                "user_id": user_id
+            }
+        }),
+        "create" => {
+            let parts: Vec<&str> = params.splitn(2, '"').collect();
+            if parts.len() < 2 {
+                return Err("Please provide title in quotes: create \"Issue title\" \"Description\"".to_string());
+            }
+            json!({
+                "command": "github_create_issue",
+                "args": {
+                    "title": parts[1],
+                    "body": parts.get(3).unwrap_or(&""),
+                    "user_id": user_id
+                }
+            })
+        },
+        "list_issues" => json!({
+            "command": "github_list_issues",
+            "args": {
+                "state": if params.is_empty() { "open" } else { params },
+                "user_id": user_id
+            }
+        }),
+        "list_prs" => json!({
+            "command": "github_list_prs",
+            "args": {
+                "state": if params.is_empty() { "open" } else { params },
+                "user_id": user_id
+            }
+        }),
+        _ => return Err("Unknown GitHub action. Available actions: connect, list, select, create, list_issues, list_prs".to_string()),
+    };
+
+    let response = self.http_client
+        .post(format!("{}/api/process_command", self.python_api_url))
+        .json(&payload)
+        .send()
+        .await
+        .map_err(|e| format!("Failed to call Python API: {}", e))?;
+
+    let status = response.status();
+    if !status.is_success() {
+        match response.json::<PythonErrorResponse>().await {
+            Ok(err) => return Err(err.error),
+            Err(_) => return Err(format!("Python API returned error status: {}", status)),
+        }
+    }
+    
+    let bot_response = match response.json::<PythonBotResponse>().await {
+        Ok(resp) => resp,
+        Err(e) => return Err(format!("Failed to parse Python API response: {}", e)),
+    };
+    
+    let formatted_response = format!("*{}*\n{}", bot_response.bot_name, bot_response.text);
+    
+    let message = oc_client_factory
+        .build(context)
+        .send_text_message(formatted_response)
+        .execute_then_return_message(|_, _| ());
+    
+    Ok(oc_bots_sdk::api::command::SuccessResult { message })
+}
+```
+
+This code consolidates the GitHub commands into a single `/github` command, allowing you to handle sub-commands based on user input. You can manually integrate this code into your existing file.
+
+---
+
+_**User**_
+
+I also want us to update this proxy 
+
+It should have the updated steps of connecting github account that also has the permisions
+
+Remember, don't edit any file
+
+
+---
+
+_**Assistant**_
+
+
+
+Certainly! Here's the updated JSON response with the detailed steps for connecting a GitHub account, including the permissions:
+
+```python
+return jsonify({
+    "text": "⚠️ Please connect your GitHub account first using `/github connect YOUR_TOKEN`\n\n"
+            "To get your token:\n"
+            "1. Go to https://github.com/settings/personal-access-tokens\n"
+            "2. Click on 'Generate new token' in the top right section.\n"
+            "3. Set 'Repository access' to: All repositories.\n"
+            "4. Under 'Repository permissions':\n"
+            "   - Issues: Set to read & write.\n"
+            "   - Pull requests: Set to read & write.\n"
+            "5. Copy and use it with the connect command",
+    "bot_name": "GitHub Assistant"
+})
+```
+
+You can manually insert this updated response into your file where needed.
+
+---
+
+_**User**_
+
+I also want us to udpate this response. It's actually ok 
+
+But now it has to give someone the next steps i.e now create an issue using __, list the available pull requests using ___ e.t.c
+
+---
+
+_**Assistant**_
+
+
+
+Certainly! Here's the updated response that includes the next steps after selecting a repository:
+
+```python
+return jsonify({
+    "text": f"✅ Selected repository: {repo['name']}\n{repo['url']}\n\n"
+            "Next steps:\n"
+            "• To create an issue, use: `/github create \"Issue title\" \"Issue description\"`\n"
+            "• To list available pull requests, use: `/github list_prs`\n"
+            "• To list issues, use: `/github list_issues`",
+    "bot_name": "GitHub Assistant"
+})
+```
+
+
+You can manually insert this updated response into your file.
+
+---
+
+_**User**_
+
+I think we need a command for checking the connected github repository
+
+---
+
+_**Assistant**_
+
+
+
+Certainly! To add a command for checking the currently connected GitHub repository, you can extend the existing command handling logic. Here's how you can implement this:
+
+### Python Backend
+
+Add a new command handler for checking the connected repository:
+
+```python
+def handle_github_command(command, args):
+    """Handle GitHub commands"""
+    try:
+        user_id = args.get('user_id')
+        if not user_id:
+            return jsonify({
+                "text": "Error: User ID not provided",
+                "bot_name": "GitHub Assistant"
+            }), 400
+
+        # Check if user has connected GitHub
+        github_creds = credential_store.get_github_credentials(user_id)
+        if not github_creds:
+            return jsonify({
+                "text": "⚠️ Please connect your GitHub account first using `/github connect YOUR_TOKEN`\n\n"
+                        "To get your token:\n"
+                        "1. Go to https://github.com/settings/personal-access-tokens\n"
+                        "2. Click on 'Generate new token' in the top right section.\n"
+                        "3. Set 'Repository access' to: All repositories.\n"
+                        "4. Under 'Repository permissions':\n"
+                        "   - Issues: Set to read & write.\n"
+                        "   - Pull requests: Set to read & write.\n"
+                        "5. Copy and use it with the connect command",
+                "bot_name": "GitHub Assistant"
+            })
+
+        # Initialize GitHub with token and selected repo
+        github = GitHubIntegration(
+            github_creds['token'], 
+            github_creds.get('selected_repo')
+        )
+
+        if command == "github_check_repo":
+            selected_repo = github_creds.get('selected_repo')
+            if not selected_repo:
+                return jsonify({
+                    "text": "No repository is currently selected. Use `/github select <repository_name>` to select one.",
+                    "bot_name": "GitHub Assistant"
+                })
+            return jsonify({
+                "text": f"Currently connected repository: {selected_repo}",
+                "bot_name": "GitHub Assistant"
+            })
+
+        # ... existing command handling logic ...
+
+    except Exception as e:
+        logger.error(f"GitHub command error: {str(e)}", exc_info=True)
+        return jsonify({"error": f"GitHub command error: {str(e)}"}), 500
+```
+
+### Rust Command Registration
+
+Add the new command to the Rust command handler:
+
+```rust
+impl BotCommandHandler {
+    fn new(command_name: String, bot_name: String, python_api_url: String, http_client: ReqwestClient) -> Self {
+        let definition = match command_name.as_str() {
+            // ... existing command definitions ...
+            "github" => BotCommandDefinition {
+                name: command_name.clone(),
+                description: Some("Manage GitHub repositories and issues".to_string()),
+                placeholder: Some("Processing your request...".to_string()),
+                params: vec![BotCommandParam {
+                    name: "command".to_string(),
+                    description: Some("Available commands:\n".to_string() + 
+                        "• connect <token> - Connect your GitHub account\n" +
+                        "• list - List your repositories\n" +
+                        "• select <owner/repo> - Select a repository to work with\n" +
+                        "• create \"Issue title\" \"Issue description\" - Create a new issue\n" +
+                        "• list_issues [open/closed] - List repository issues\n" +
+                        "• list_prs [open/closed] - List pull requests\n" +
+                        "• check_repo - Check the currently connected repository"),
+                    placeholder: Some("[command] [parameters]".to_string()),
+                    required: true,
+                    param_type: BotCommandParamType::StringParam(StringParam {
+                        min_length: 1,
+                        max_length: 10000,
+                        choices: Vec::new(),
+                        multi_line: true,
+                    }),
+                }],
+                permissions: BotPermissions::from_message_permission(MessagePermission::Text),
+                default_role: None,
+            },
+            // ... other command definitions ...
+        };
+
+        Self {
+            command_name,
+            bot_name,
+            python_api_url,
+            http_client,
+            definition,
+        }
+    }
+}
+```
+
+### Rust Command Execution
+
+Update the `execute` method to handle the new sub-command:
+
+```rust
+async fn execute(
+    &self,
+    context: oc_bots_sdk::types::BotCommandContext,
+    oc_client_factory: &ClientFactory<AgentRuntime>,
+) -> Result<oc_bots_sdk::api::command::SuccessResult, String> {
+    let user_id = context.command.initiator.to_string();
+    let command_text: String = context.command.arg("command");
+    let parts: Vec<&str> = command_text.splitn(2, ' ').collect();
+    
+    if parts.is_empty() {
+        return Err("Please specify a GitHub action".to_string());
+    }
+
+    let action = parts[0].trim().to_lowercase();
+    let params = parts.get(1).map(|s| s.trim()).unwrap_or("");
+
+    // Set processing message based on action
+    let processing_message = match action.as_str() {
+        "connect" => "Connecting to GitHub...",
+        "list" => "Fetching your repositories...",
+        "select" => "Selecting repository...",
+        "create" => "Creating new issue...",
+        "list_issues" => "Fetching issues...",
+        "list_prs" => "Fetching pull requests...",
+        "check_repo" => "Checking connected repository...",
+        _ => "Processing GitHub command...",
+    };
+    info!("{}", processing_message);
+
+    let payload = match action.as_str() {
+        "check_repo" => json!({
+            "command": "github_check_repo",
+            "args": {
+                "user_id": user_id
+            }
+        }),
+        // ... existing payloads ...
+    };
+
+    // ... existing request handling logic ...
+}
+```
+
+This code adds a new `/github check_repo` command that allows users to check which GitHub repository is currently connected. You can manually integrate this code into your existing files.
 
 ---
 

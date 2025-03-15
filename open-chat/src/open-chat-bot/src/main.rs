@@ -415,7 +415,8 @@ impl BotCommandHandler {
                         "• select <owner/repo> - Select a repository to work with\n" +
                         "• create \"Issue title\" \"Issue description\" - Create a new issue\n" +
                         "• list_issues [open/closed] - List repository issues\n" +
-                        "• list_prs [open/closed] - List pull requests"),
+                        "• list_prs [open/closed] - List pull requests\n" +
+                        "• check_repo - Check the currently connected repository"),
                     placeholder: Some("[command] [parameters]".to_string()),
                     required: true, 
                     param_type: BotCommandParamType::StringParam(StringParam {
@@ -683,6 +684,7 @@ impl oc_bots_sdk::api::command::CommandHandler<AgentRuntime> for BotCommandHandl
                     "create" => "Creating new issue...",
                     "list_issues" => "Fetching issues...",
                     "list_prs" => "Fetching pull requests...",
+                    "check_repo" => "Checking connected repository...",
                     _ => "Processing GitHub command...",
                 };
                 info!("{}", processing_message);
@@ -733,6 +735,12 @@ impl oc_bots_sdk::api::command::CommandHandler<AgentRuntime> for BotCommandHandl
                         "command": "github_list_prs",
                         "args": {
                             "state": if params.is_empty() { "open" } else { params },
+                            "user_id": user_id
+                        }
+                    }),
+                    "check_repo" => json!({
+                        "command": "github_check_repo",
+                        "args": {
                             "user_id": user_id
                         }
                     }),
