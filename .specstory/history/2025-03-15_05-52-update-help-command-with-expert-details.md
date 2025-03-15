@@ -242,6 +242,24 @@ This update includes the URL for obtaining a personal access token and detailed 
 
 ---
 
+_**User**_
+
+Now I want us to work on the github commands 
+
+As you see what we've done with the /ask and /project commands - they're only a single command registered, then on the parameters it breaks down the commands into the various sub commands based on user's input text e.g if it has list - it will list all tasks from asana (for the /project) command e.t.c 
+
+We need to do the same for the github commands - we only need one /github command  
+
+Generate the code for me and don't change any of my files
+
+---
+
+_**Assistant**_
+
+Certainly! To consolidate the GitHub commands into a
+
+---
+
 
 
 ---
