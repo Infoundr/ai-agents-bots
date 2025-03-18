@@ -296,11 +296,27 @@ This is the response you'll get in the chat if the repository is connected succe
 
 ![github command response](./images/github-select-repo.png)
 
-You can now create a new issue by typing ``/github create issue [title] [description]``. 
+You can now create a new issue by typing ``/github create issue title -- Description``. 
 
 ![github command](./images/github-create-issue.png)
 
+You will get the loading element again. And once the issue is created succesfully, you'll get a response in the chat: 
 
+![github command response](./images/github-create-issue-2.png)
+
+You can now see the issue in your repository. 
+
+![github command response](./images/github-create-issue-3.png)
+
+To list issues in your repository, you can type ``/github list issues``. 
+
+![github command](./images/github-list-issues.png)
+
+You will get the loading element again. And once the issues are listed succesfully, you'll get a response in the chat: 
+
+![github command response](./images/github-list-issues-2.png)
+
+And with that you've successfully tested out the ``Infoundr OpenChat Bot``.  
 
 
 
