@@ -7,6 +7,7 @@ import os
 import json
 from pathlib import Path
 import asana
+from integrations.github_integration import GitHubIntegration
 
 # Configure logging
 logging.basicConfig(
@@ -162,6 +163,185 @@ def handle_project_command(command, args):
         logger.error(f"Project management error: {str(e)}", exc_info=True)
         return jsonify({"error": f"Project management error: {str(e)}"}), 500
 
+def handle_github_command(command, args):
+    """Handle GitHub commands"""
+    try:
+        user_id = args.get('user_id')
+        if not user_id:
+            return jsonify({
+                "text": "Error: User ID not provided",
+                "bot_name": "GitHub Assistant"
+            }), 400
+
+        # For list repositories command, we only need the token
+        if command == "github_list_repos":
+            github_creds = credential_store.get_github_credentials(user_id)
+            if not github_creds:
+                return jsonify({
+                    "text": "⚠️ Please connect your GitHub account first using `/github connect YOUR_TOKEN`\n\n"
+                            "To get your token:\n"
+                            "1. Go to https://github.com/settings/personal-access-tokens\n"
+                            "2. Click on `Generate new token` in the top right section.\n"
+                            "3. Set `Repository access` to: All repositories.\n"
+                            "4. Under `Repository permissions`: \n"
+                            "   - Issues: Set to read & write.\n"
+                            "   - Pull requests: Set to read & write.\n"
+                            "5. Copy and use it with the connect command",
+                    "bot_name": "GitHub Assistant"
+                })
+            
+            github = GitHubIntegration(github_creds['token'])
+            repos = github.list_repositories()
+            repos_text = "\n".join([f"• {repo['name']}" + 
+                                  (f" (Private)" if repo['private'] else "") 
+                                  for repo in repos])
+            return jsonify({
+                "text": f"Your repositories:\n{repos_text}\n\nTo select a repository, use:\n/github select <repository_name>",
+                "bot_name": "GitHub Assistant"
+            })
+
+        # For selecting a repository
+        elif command == "github_select_repo":
+            repo_name = args.get('repo_name')
+            if not repo_name:
+                return jsonify({
+                    "text": "Error: Please provide a repository name",
+                    "bot_name": "GitHub Assistant"
+                }), 400
+
+            github_creds = credential_store.get_github_credentials(user_id)
+            if not github_creds:
+                return jsonify({
+                    "text": "⚠️ Please connect your GitHub account first using `/github connect YOUR_TOKEN`\n\n"
+                            "To get your token:\n"
+                            "1. Go to https://github.com/settings/personal-access-tokens\n"
+                            "2. Click on `Generate new token` in the top right section.\n"
+                            "3. Set `Repository access` to: All repositories.\n"
+                            "4. Under `Repository permissions`: \n"
+                            "   - Issues: Set to read & write.\n"
+                            "   - Pull requests: Set to read & write.\n"
+                            "5. Copy and use it with the connect command",
+                    "bot_name": "GitHub Assistant"
+                })
+
+            github = GitHubIntegration(github_creds['token'])
+            repo = github.select_repository(repo_name)
+            
+            # Store the selected repository in credentials
+            credential_store.update_github_credentials(user_id, {
+                'token': github_creds['token'],
+                'selected_repo': repo_name
+            })
+
+            return jsonify({
+                "text": f"✅ Selected repository: {repo['name']}\n{repo['url']}\n\n"
+                        "Next steps:\n"
+                        "• To create an issue, use: `/github create \"Issue title\" \"Issue description\"`\n"
+                        "• To list available pull requests, use: `/github list_prs`\n"
+                        "• To list issues, use: `/github list_issues`",
+                "bot_name": "GitHub Assistant"
+            })
+
+        elif command == "github_connect":
+            token = args.get('token')
+            if not token:
+                return jsonify({
+                    "text": "Error: Please provide your GitHub token",
+                    "bot_name": "GitHub Assistant"
+                }), 400
+
+            try:
+                # Test the connection by getting user info
+                github = GitHubIntegration(token)
+                user_info = github.test_connection()
+                
+                # Store credentials
+                credential_store.store_github_credentials(user_id, token)
+                
+                return jsonify({
+                    "text": f"✅ Successfully connected GitHub account for {user_info['name']}!\n\n"
+                            "Use `/github list` to see your repositories, then\n"
+                            "Use `/github select owner/repo` to choose a repository to work with.",
+                    "bot_name": "GitHub Assistant"
+                })
+                
+            except Exception as e:
+                return jsonify({
+                    "text": f"Error connecting to GitHub: {str(e)}",
+                    "bot_name": "GitHub Assistant"
+                }), 500
+
+        # For other commands, check if user has connected GitHub
+        github_creds = credential_store.get_github_credentials(user_id)
+        if not github_creds:
+            return jsonify({
+                "text": "⚠️ Please connect your GitHub account first using `/github connect YOUR_TOKEN`\n\n"
+                        "To get your token:\n"
+                        "1. Go to https://github.com/settings/personal-access-tokens\n"
+                        "2. Click on `Generate new token` in the top right section.\n"
+                        "3. Set `Repository access` to: All repositories.\n"
+                        "4. Under `Repository permissions`: \n"
+                        "   - Issues: Set to read & write.\n"
+                        "   - Pull requests: Set to read & write.\n"
+                        "5. Copy and use it with the connect command",
+                "bot_name": "GitHub Assistant"
+            })
+
+        # Initialize GitHub with token and selected repo
+        github = GitHubIntegration(
+            github_creds['token'], 
+            github_creds.get('selected_repo')
+        )
+
+        if command == "github_list_issues":
+            state = args.get('state', 'open')
+            issues = github.list_issues(state)
+            issues_text = "\n".join([f"#{i['number']} - {i['title']} ({i['state']})" 
+                                   for i in issues])
+            return jsonify({
+                "text": f"Issues ({state}):\n{issues_text}",
+                "bot_name": "GitHub Assistant"
+            })
+
+        elif command == "github_create_issue":
+            title = args.get('title')
+            body = args.get('body', '')
+            
+            if not title:
+                return jsonify({"error": "No issue title provided"}), 400
+                
+            issue = github.create_issue(title, body)
+            return jsonify({
+                "text": f"Created issue #{issue['number']}: {issue['title']}\n{issue['url']}",
+                "bot_name": "GitHub Assistant"
+            })
+
+        elif command == "github_list_prs":
+            state = args.get('state', 'open')
+            prs = github.list_pull_requests(state)
+            prs_text = "\n".join([f"#{pr['number']} - {pr['title']} ({pr['state']})" 
+                                 for pr in prs])
+            return jsonify({
+                "text": f"Pull Requests ({state}):\n{prs_text}",
+                "bot_name": "GitHub Assistant"
+            })
+        
+        if command == "github_check_repo":
+            selected_repo = github_creds.get('selected_repo')
+            if not selected_repo:
+                return jsonify({
+                    "text": "No repository is currently selected. Use `/github select <repository_name>` to select one.",
+                    "bot_name": "GitHub Assistant"
+                })
+            return jsonify({
+                "text": f"Currently connected repository: {selected_repo}",
+                "bot_name": "GitHub Assistant"
+            })
+            
+    except Exception as e:
+        logger.error(f"GitHub command error: {str(e)}", exc_info=True)
+        return jsonify({"error": f"GitHub command error: {str(e)}"}), 500
+
 @app.route('/api/bot_info', methods=['GET'])
 def get_bot_info():
     """Return information about available bots"""
@@ -210,6 +390,8 @@ def process_command():
                 return jsonify({"error": f"Bot {bot_name} not found"}), 404
         elif command.startswith('project_'):
             return handle_project_command(command, args)
+        elif command.startswith('github_'):
+            return handle_github_command(command, args)
         else:
             return jsonify({"error": f"Unknown command: {command}"}), 400
     
