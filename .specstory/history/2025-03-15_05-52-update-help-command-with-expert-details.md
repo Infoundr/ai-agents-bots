@@ -852,6 +852,360 @@ This approach simplifies the command input and should make it easier for users t
 
 ---
 
+_**User**_
+
+I am thinking, what's the quickest way of intergrating storage functionality in this bot? 
+
+Cause now, I want the users to be able to track their messages (message history), track the connected accounts e.g Asana or GitHub
+
+The user also needs to continue with their connected session without having to connect again every time they log in e.t.c 
+
+---
+
+_**Assistant**_
+
+To integrate storage functionality into your bot, you can use a database to persist user data, such as message history and connected accounts. This will allow users to maintain their session state across different interactions. Here's a high-level approach to achieve this:
+
+### 1. Choose a Database
+
+For simplicity and ease of integration, you might consider using a lightweight database like SQLite for local storage or PostgreSQL for more robust, scalable storage. Both have good Rust support through libraries like `rusqlite` for SQLite and `tokio-postgres` or `diesel` for PostgreSQL.
+
+### 2. Set Up the Database
+
+#### SQLite Example
+
+1. **Add Dependencies**: Add `rusqlite` to your `Cargo.toml`.
+
+   ```toml
+   [dependencies]
+   rusqlite = "0.26.0"
+   ```
+
+2. **Initialize the Database**: Create a function to initialize your database and create necessary tables.
+
+   ```rust
+   use rusqlite::{params, Connection, Result};
+
+   pub fn initialize_db() -> Result<Connection> {
+       let conn = Connection::open("bot_data.db")?;
+       conn.execute(
+           "CREATE TABLE IF NOT EXISTS user_sessions (
+               user_id TEXT PRIMARY KEY,
+               github_token TEXT,
+               asana_token TEXT,
+               last_connected_repo TEXT
+           )",
+           [],
+       )?;
+       conn.execute(
+           "CREATE TABLE IF NOT EXISTS message_history (
+               id INTEGER PRIMARY KEY,
+               user_id TEXT,
+               message TEXT,
+               timestamp DATETIME DEFAULT CURRENT_TIMESTAMP
+           )",
+           [],
+       )?;
+       Ok(conn)
+   }
+   ```
+
+### 3. Implement Storage Logic
+
+#### Store and Retrieve User Sessions
+
+- **Store Session**: Save user tokens and connected accounts.
+
+  ```rust
+  pub fn save_user_session(conn: &Connection, user_id: &str, github_token: Option<&str>, asana_token: Option<&str>, last_connected_repo: Option<&str>) -> Result<()> {
+      conn.execute(
+          "INSERT INTO user_sessions (user_id, github_token, asana_token, last_connected_repo) VALUES (?1, ?2, ?3, ?4)
+           ON CONFLICT(user_id) DO UPDATE SET github_token=excluded.github_token, asana_token=excluded.asana_token, last_connected_repo=excluded.last_connected_repo",
+          params![user_id, github_token, asana_token, last_connected_repo],
+      )?;
+      Ok(())
+  }
+  ```
+
+- **Retrieve Session**: Fetch user session data when needed.
+
+  ```rust
+  pub fn get_user_session(conn: &Connection, user_id: &str) -> Result<Option<(String, String, String)>> {
+      let mut stmt = conn.prepare("SELECT github_token, asana_token, last_connected_repo FROM user_sessions WHERE user_id = ?1")?;
+      let mut rows = stmt.query(params![user_id])?;
+
+      if let Some(row) = rows.next()? {
+          let github_token: String = row.get(0)?;
+          let asana_token: String = row.get(1)?;
+          let last_connected_repo: String = row.get(2)?;
+          Ok(Some((github_token, asana_token, last_connected_repo)))
+      } else {
+          Ok(None)
+      }
+  }
+  ```
+
+#### Store and Retrieve Message History
+
+- **Store Message**: Save user messages.
+
+  ```rust
+  pub fn save_message(conn: &Connection, user_id: &str, message: &str) -> Result<()> {
+      conn.execute(
+          "INSERT INTO message_history (user_id, message) VALUES (?1, ?2)",
+          params![user_id, message],
+      )?;
+      Ok(())
+  }
+  ```
+
+- **Retrieve Messages**: Fetch message history for a user.
+
+  ```rust
+  pub fn get_message_history(conn: &Connection, user_id: &str) -> Result<Vec<(String, String)>> {
+      let mut stmt = conn.prepare("SELECT message, timestamp FROM message_history WHERE user_id = ?1 ORDER BY timestamp DESC")?;
+      let message_iter = stmt.query_map(params![user_id], |row| {
+          Ok((row.get(0)?, row.get(1)?))
+      })?;
+
+      let mut messages = Vec::new();
+      for message in message_iter {
+          messages.push(message?);
+      }
+      Ok(messages)
+  }
+  ```
+
+### 4. Integrate with Your Bot
+
+- **Initialize Database**: Call `initialize_db()` at the start of your application to set up the database.
+- **Use Storage Functions**: Integrate the storage functions into your command handlers to save and retrieve user data as needed.
+
+This approach provides a basic framework for adding persistent storage to your bot, allowing users to maintain their session state and track their interactions. You can expand on this by adding more tables and fields as needed to support additional features.
+
+---
+
+_**User**_
+
+So how can  I check this db? Is there a dashboard I can use or how do I go about this?
+
+---
+
+_**Assistant**_
+
+
+
+To interact with and manage your SQLite database, you have several options, ranging from command-line tools to graphical user interfaces (GUIs). Here are some popular methods:
+
+### 1. Command-Line Tools
+
+#### SQLite Command-Line Interface
+
+- **Installation**: SQLite comes with a command-line tool that you can use to interact with your database. You can download it from the [SQLite website](https://www.sqlite.org/download.html) or install it via package managers like `apt` for Ubuntu or `brew` for macOS.
+
+- **Usage**: Open your terminal and run the following command to start the SQLite shell:
+
+  ```bash
+  sqlite3 bot_data.db
+  ```
+
+  Once inside the SQLite shell, you can execute SQL commands to query and manage your database. For example:
+
+  ```sql
+  .tables  -- List all tables
+  SELECT * FROM user_sessions;  -- View all user sessions
+  SELECT * FROM message_history;  -- View message history
+  ```
+
+### 2. Graphical User Interfaces (GUIs)
+
+#### DB Browser for SQLite
+
+- **Installation**: DB Browser for SQLite is a popular open-source GUI tool for managing SQLite databases. You can download it from the [official website](https://sqlitebrowser.org/).
+
+- **Usage**: After installing, open DB Browser for SQLite and use the "Open Database" option to load your `bot_data.db` file. You can then browse tables, execute SQL queries, and manage your data through a user-friendly interface.
+
+#### SQLiteStudio
+
+- **Installation**: SQLiteStudio is another powerful, open-source SQLite database manager. You can download it from the [SQLiteStudio website](https://sqlitestudio.pl/).
+
+- **Usage**: Similar to DB Browser, you can open your database file and use the interface to view and manage your data.
+
+### 3. Web-Based Tools
+
+#### Adminer
+
+- **Installation**: Adminer is a lightweight web-based database management tool. You can run it locally using a simple PHP server.
+
+- **Usage**: Download the Adminer PHP file from the [Adminer website](https://www.adminer.org/). Run a local PHP server and access Adminer through your web browser to manage your SQLite database.
+
+### 4. Programmatic Access
+
+- **Custom Scripts**: You can write custom scripts in Rust or another language to query and manipulate your database programmatically. This is useful for automated tasks or integrating database operations into your application logic.
+
+### Choosing the Right Tool
+
+The choice of tool depends on your preferences and workflow. GUIs like DB Browser for SQLite and SQLiteStudio are user-friendly and great for visualizing data, while command-line tools offer more flexibility for quick queries and scripting. Web-based tools like Adminer provide a convenient way to manage databases through a browser interface.
+
+---
+
+_**User**_
+
+Can we use postgress instead? What are the advantages/disadvantages as compared to using SQLite?
+
+---
+
+_**Assistant**_
+
+
+
+Certainly! Switching from SQLite to PostgreSQL can offer several advantages, especially if your application is expected to grow in complexity or scale. Here's a comparison of the two databases:
+
+### Advantages of PostgreSQL
+
+1. **Scalability**:
+   - **PostgreSQL**: Designed to handle larger datasets and more concurrent users. It supports advanced features like replication and partitioning, making it suitable for high-traffic applications.
+   - **SQLite**: Best suited for smaller applications with fewer concurrent users. It operates as a single-file database, which can be a limitation for larger-scale applications.
+
+2. **Concurrency**:
+   - **PostgreSQL**: Supports multiple concurrent writes and reads, thanks to its MVCC (Multi-Version Concurrency Control) system.
+   - **SQLite**: Allows multiple concurrent reads but only one write operation at a time, which can become a bottleneck in write-heavy applications.
+
+3. **Advanced Features**:
+   - **PostgreSQL**: Offers a wide range of advanced features, including full-text search, JSONB data type for storing JSON data, and support for complex queries and indexing.
+   - **SQLite**: While it supports basic SQL operations, it lacks some of the advanced features found in PostgreSQL.
+
+4. **Data Integrity and Security**:
+   - **PostgreSQL**: Provides robust data integrity features, including foreign keys, constraints, and transaction management. It also offers advanced security features like role-based access control.
+   - **SQLite**: Offers basic data integrity features but lacks the advanced security and integrity options available in PostgreSQL.
+
+5. **Extensibility**:
+   - **PostgreSQL**: Highly extensible with support for custom functions, data types, and extensions like PostGIS for geospatial data.
+   - **SQLite**: Limited extensibility compared to PostgreSQL.
+
+### Disadvantages of PostgreSQL
+
+1. **Complexity**:
+   - **PostgreSQL**: More complex to set up and manage, requiring a dedicated server or cloud instance. It involves more configuration and maintenance.
+   - **SQLite**: Extremely simple to set up and use, with no server process to manage. It's ideal for quick prototyping and small applications.
+
+2. **Resource Usage**:
+   - **PostgreSQL**: Consumes more system resources, which can be a consideration for applications running on limited hardware.
+   - **SQLite**: Lightweight and efficient, making it suitable for applications with limited resources.
+
+3. **Deployment**:
+   - **PostgreSQL**: Requires a separate server or cloud service, which can add complexity to deployment and scaling.
+   - **SQLite**: Embedded within the application, making deployment straightforward and self-contained.
+
+### When to Use Each
+
+- **Use PostgreSQL** if your application requires high concurrency, advanced features, or is expected to scale significantly. It's a robust choice for production environments with complex data requirements.
+
+- **Use SQLite** for smaller applications, prototyping, or when simplicity and ease of use are priorities. It's ideal for applications with low to moderate data and user loads.
+
+### Transitioning to PostgreSQL
+
+If you decide to switch to PostgreSQL, you'll need to:
+
+1. **Install PostgreSQL**: Set up a PostgreSQL server locally or use a cloud provider like AWS RDS, Google Cloud SQL, or Heroku.
+
+2. **Update Dependencies**: Use a Rust library like `tokio-postgres` or `diesel` for database interactions.
+
+3. **Migrate Data**: Transfer existing data from SQLite to PostgreSQL, which can be done using data export/import tools or scripts.
+
+4. **Modify Code**: Update your application code to use PostgreSQL-specific features and handle connections appropriately.
+
+Switching to PostgreSQL can provide significant benefits for applications that require more robust database capabilities and scalability.
+
+---
+
+_**User**_
+
+Ok I am thinking, having this on rust might be abit hectic. Is it possible to intergrate it on this python script instead? Is it more feasible? Or it's just better to have it on the rust server?
+
+---
+
+_**Assistant**_
+
+Integrating PostgreSQL with your Python script can be a feasible and often simpler approach, especially if you're already using Python for other parts of your application. Python has a rich ecosystem of libraries and tools for working with databases, which can make the integration process more straightforward. Here are some considerations and steps to help you decide and implement this:
+
+### Advantages of Using Python for Database Integration
+
+1. **Rich Ecosystem**: Python has excellent libraries for database interaction, such as `psycopg2` for PostgreSQL, which is well-documented and widely used.
+
+2. **Ease of Use**: Python's syntax and dynamic nature can make it easier to write and maintain database-related code, especially for rapid development and prototyping.
+
+3. **Flexibility**: Python scripts can be easily modified and extended, allowing you to quickly adapt to changing requirements.
+
+4. **Integration with Existing Code**: If your Python script already handles other parts of your application logic, integrating database functionality can centralize your business logic and reduce complexity.
+
+### Steps to Integrate PostgreSQL with Python
+
+1. **Install PostgreSQL and psycopg2**:
+   - Ensure PostgreSQL is installed and running on your system or use a cloud-based PostgreSQL service.
+   - Install `psycopg2` using pip:
+
+     ```bash
+     pip install psycopg2-binary
+     ```
+
+2. **Set Up the Database**:
+   - Create a database and necessary tables for storing user sessions, message history, etc.
+
+3. **Connect to PostgreSQL**:
+   - Use `psycopg2` to establish a connection to your PostgreSQL database.
+
+   ```python
+   import psycopg2
+
+   def get_db_connection():
+       conn = psycopg2.connect(
+           dbname='your_db_name',
+           user='your_db_user',
+           password='your_db_password',
+           host='localhost',  # or your database host
+           port='5432'        # default PostgreSQL port
+       )
+       return conn
+   ```
+
+4. **Implement CRUD Operations**:
+   - Write functions to create, read, update, and delete records in your database.
+
+   ```python
+   def save_user_session(user_id, github_token=None, asana_token=None, last_connected_repo=None):
+       conn = get_db_connection()
+       cur = conn.cursor()
+       cur.execute('''
+           INSERT INTO user_sessions (user_id, github_token, asana_token, last_connected_repo)
+           VALUES (%s, %s, %s, %s)
+           ON CONFLICT (user_id) DO UPDATE
+           SET github_token = EXCLUDED.github_token,
+               asana_token = EXCLUDED.asana_token,
+               last_connected_repo = EXCLUDED.last_connected_repo
+       ''', (user_id, github_token, asana_token, last_connected_repo))
+       conn.commit()
+       cur.close()
+       conn.close()
+   ```
+
+5. **Integrate with Your Application Logic**:
+   - Use these functions within your Python script to manage user sessions and message history.
+
+### Considerations
+
+- **Performance**: If your Rust server handles high-performance tasks, consider whether moving database operations to Python might impact performance. However, for many applications, Python's performance is sufficient.
+
+- **Complexity**: Keeping database logic in Python can reduce complexity if your application logic is already Python-centric.
+
+- **Maintainability**: Centralizing your database logic in Python can make your application easier to maintain, especially if your team is more familiar with Python.
+
+### Conclusion
+
+Integrating PostgreSQL with your Python script is a viable and often simpler approach, especially if your application logic is already in Python. It allows you to leverage Python's rich ecosystem and ease of use for database operations. However, if your Rust server is designed to handle high-performance tasks, you might still consider keeping some database operations in Rust for efficiency. Ultimately, the decision should be based on your team's expertise, application requirements, and performance considerations.
+
+---
+
 
 
 ---
