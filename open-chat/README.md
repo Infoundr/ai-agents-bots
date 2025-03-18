@@ -206,7 +206,47 @@ Once the expert has responded, the bot will send the response back to you:
 
 #### Section B: Interacting with the ``Project Management Bot``: 
 
+You'll type ``/project`` command in the chat to interact with the project management bot. 
 
+![project command](./images/project.png)
+
+The frist step is to connect your asana account to the bot for you to use it. You'll get your asana token from the [developer console](https://app.asana.com/0/developer-console) in Asana 
+
+![asana token](./images/asana-token.png)
+
+You will click on ``Create new token`` and then copy the token. 
+
+![asana token](./images/create-new-token.png)
+
+You will then paste the token in the ``/project`` popup command in the chat. 
+
+![project command](./images/project-connect.png)
+
+You will then get a response in the chat: 
+
+![project command response](./images/project-connected.png)
+
+Now create your first task by typing ``/project`` then ``create [description]``
+
+![project command](./images/project-create.png)
+
+You will get the loading element again. And once your task is created succesfully, you'll get a response in the chat: 
+
+![project command response](./images/project-created.png)
+
+You can now click on the ``here`` link to view your task in your asana account. 
+
+![project command response](./images/task-created.png)
+
+The next step is to check out the tasks that are available on your asana account. You can do this by typing ``/project`` then ``list``
+
+![project command](./images/project-list.png)
+
+You will get the loading element again. And once your task is created succesfully, you'll get a response in the chat: 
+
+![project command response](./images/project-list-response.png)
+
+You can now see the tasks that are available on your asana account. 
 
 
 
