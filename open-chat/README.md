@@ -248,6 +248,61 @@ You will get the loading element again. And once your task is created succesfull
 
 You can now see the tasks that are available on your asana account. 
 
+#### Section C: Interacting with the ``GitHub Bot``: 
+
+You'll type ``/github`` command in the chat to interact with the GitHub bot. 
+
+![github command](./images/github.png)
+
+You will get a popup to connect your GitHub account to the bot. 
+
+![github command](./images/github-connect.png)
+
+The first step is to create a personal access token from GitHub to connect your account to the bot. 
+
+You can do this by going to your [GitHub account settings](https://github.com/settings/personal-access-tokens) and then generating a token. 
+
+![github command](./images/github-token.png)
+
+Click on ``Generate New Token`` and then once you've added ``Token Name`` and ``Token Description``, allow the following permissions: 
+   - In the ``Repository Access``, select ``All Repositories``
+   - In the ``Permissions``, select ``Repository Permissions`` and select ``Read and Write`` for all the permissions that you'd like to allow the bot to have. But the main ones are ``Issues`` and ``Pull Requests``.
+
+Once you're done click on ``Generate Token`` and then copy the token, since you won't be able to see it again. 
+
+![github command](./images/generate-token.png)
+
+You will then paste the token in the ``/github`` popup command in the chat. 
+
+![github command](./images/github-connect-2.png)
+
+Once you've done this, you'll get a response in the chat: 
+
+![github command response](./images/github-connected.png)
+
+You can start by running the command ``/github list`` to see all the repositories that you have access to. 
+
+![github command](./images/github-list.png)
+
+You will get the loading element again. And once the repositories are listed succesfully, you'll get a response in the chat: 
+
+![github command response](./images/github-list-response.png)
+
+The next step is to connect your repository to the bot. You can do this by typing ``/github select owner/repo``. You can directly copy the owner/repo from the list of repositories. 
+
+![github command](./images/github-select.png)
+
+This is the response you'll get in the chat if the repository is connected succesfully: 
+
+![github command response](./images/github-select-repo.png)
+
+You can now create a new issue by typing ``/github create issue [title] [description]``. 
+
+![github command](./images/github-create-issue.png)
+
+
+
+
 
 
 
