@@ -8,6 +8,13 @@ import json
 from pathlib import Path
 import asana
 from integrations.github_integration import GitHubIntegration
+from database.operations import DatabaseOperations
+from database.db import init_db
+
+
+# Initializing database 
+init_db()
+db_ops = DatabaseOperations()
 
 # Configure logging
 logging.basicConfig(
@@ -398,6 +405,24 @@ def process_command():
     except Exception as e:
         logger.error(f"Error processing command: {str(e)}", exc_info=True)
         return jsonify({"error": f"Internal server error: {str(e)}"}), 500
+
+# Store tokens in a simple file-based system
+TOKENS_DIR = Path("tokens")
+TOKENS_DIR.mkdir(exist_ok=True)
+
+def store_token(user_id: str, token: str): 
+    """Store Asana token for a user"""
+    with open(TOKENS_DIR / f"{user_id}.json", "w") as f:
+        json.dump({"token": token}, f)
+
+def get_token(user_id: str) -> str:
+    """Get Asana token for a user"""
+    try:
+        with open(TOKENS_DIR / f"{user_id}.json", "r") as f:
+            data = json.load(f)
+            return data.get("token")
+    except FileNotFoundError:
+        return None
 
 @app.route('/api/health', methods=['GET'])
 def health_check():
