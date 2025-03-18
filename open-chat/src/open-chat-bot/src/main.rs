@@ -787,6 +787,8 @@ impl oc_bots_sdk::api::command::CommandHandler<AgentRuntime> for BotCommandHandl
     }
 }
 
+
+
 // Add this function
 // fn verify_jwt(jwt: &str, public_key: &str) -> bool {
 //     info!("Verifying JWT: {}", jwt);

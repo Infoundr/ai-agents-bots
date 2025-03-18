@@ -152,6 +152,62 @@ While the Python API handles:
 - Bot logic and responses
 - Expert knowledge and conversation
 
+## Interacting with the bot: 
+
+1. Register the bot with OpenChat using the `/register_bot` command
+
+2. Add the bot to the group 
+
+You can check out the different steps of doing this in open chat's documentation [here](https://github.com/open-chat-labs/open-chat-bots/blob/main/GETSTARTED.md)
+
+3. Type the ``/help`` command to see the different commands available. 
+![help command](./images/help.png)
+
+This is what you'll see in the chat: 
+![help command](./images/help-response.png)
+
+Now you can familiarize yourself with the different commands by reading the help response. 
+
+#### Section A: Interacting with the ``Expert Bots``: 
+
+You'll type ``/ask`` command in the chat to interact with the expert bots. 
+
+![ask command](./images/ask.png)
+
+The popup will appear and you can ask questions to the expert bots. This is the format you'll use: 
+```bash
+Format: [Expert Name] - [Your Question]
+```
+
+These are the experts available: 
+```bash
+• Beniah (Founder of Payd) - Bot Name: Benny
+• Innocent Mangothe (Founder of Startinev) - Bot Name: Uncle Startups
+• Dean Gichuki (Founder of Quick API) - Bot Name: Dean
+• Sheila Waswa (Founder of Chasing Maverick) - Bot Name: Sheila
+• Felix Macharia (Founder of KotaniPay) - Bot Name: Felix
+```
+
+Example: 
+```bash
+Benny - What is the best way to start a fintech startup? # This is the question you're asking Benn
+Felix - How do I go about building a payment gateway? # This is the question you're asking Felix
+```
+
+![ask command response](./images/ask-popup.png)
+
+Then the bot will send the request to the expert, this loading element will appear: 
+
+![ask command response](./images/ask-loading.png)
+
+Once the expert has responded, the bot will send the response back to you: 
+
+![ask command response](./images/ask-response.png)
+
+#### Section B: Interacting with the ``Project Management Bot``: 
+
+
+
 
 
 
