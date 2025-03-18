@@ -11,7 +11,7 @@ from collections import defaultdict
 import re
 from typing import Dict, Optional
 
-# Configure logging to show detailed information
+# logging to show detailed information
 logging.basicConfig(
     level=logging.DEBUG,
     format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
@@ -38,7 +38,8 @@ conversation_histories: Dict[str, Dict] = defaultdict(lambda: {
 @app.message("")
 def handle_messages(message, say, logger):
     try:
-        if message.get("bot_id") or message.get("subtype") == "bot_message":
+        # Skip bot messages and messages that are app mentions (will be handled by app_mention handler)
+        if message.get("bot_id") or message.get("subtype") == "bot_message" or message.get("text", "").startswith("<@"):
             return
 
         text = message.get("text", "").strip()
@@ -46,34 +47,56 @@ def handle_messages(message, say, logger):
         channel = message.get("channel", "")
         thread_ts = message.get("thread_ts") or message.get("ts")
         conversation_key = f"{channel}:{thread_ts}"
+        
+        logger.debug(f"Processing message: {text}")
 
-        # Direct bot request handling
-        for bot_name in BOTS.keys():
-            trigger = f"Ask {bot_name}:"
-            if text.lower().startswith(trigger.lower()):
-                question = text[len(trigger):].strip()
-                # using the correct bot
-                bot = BOTS[bot_name]
-                response = bot.get_response(question)
-                
-                # Update conversation state
-                conversation_histories[conversation_key] = {
-                    "current_bot": bot_name,
-                    "thread_ts": thread_ts,
-                    "history": [(question, response)]
-                }
-                
-                say(f"*{bot_name} says:*\n{response}", thread_ts=thread_ts)
-                return
-
-        # Handle ongoing conversations
+        # Handle ongoing conversations first
         if conversation_key in conversation_histories:
             current_bot = conversation_histories[conversation_key]["current_bot"]
             if current_bot:
-                response = BOTS[current_bot].get_response(text)
-                conversation_histories[conversation_key]["history"].append((text, response))
-                say(f"*{current_bot} says:*\n{response}", thread_ts=thread_ts)
-                return
+                logger.debug(f"Found ongoing conversation with {current_bot}")
+                # Check if this message is explicitly asking for a different bot
+                is_new_bot_request = False
+                for bot_name in BOTS.keys():
+                    if re.search(rf"(?i)ask\s+{re.escape(bot_name)}|@{re.escape(bot_name)}|^{re.escape(bot_name)}\b", text):
+                        is_new_bot_request = True
+                        break
+                
+                if not is_new_bot_request:
+                    response = BOTS[current_bot].get_response(text)
+                    conversation_histories[conversation_key]["history"].append((text, response))
+                    say(f"*{current_bot} says:*\n{response}", thread_ts=thread_ts)
+                    return
+
+        # More flexible bot request handling with multiple patterns
+        for bot_name in BOTS.keys():
+            # Checking for various patterns: "Ask Bot:", "Ask Bot", "@Bot", "Bot:"
+            patterns = [
+                re.compile(rf"(?i)^ask\s+{re.escape(bot_name)}:?\s*(.*)", re.IGNORECASE),
+                re.compile(rf"(?i)^@{re.escape(bot_name)}:?\s*(.*)", re.IGNORECASE),
+                re.compile(rf"(?i)^{re.escape(bot_name)}:?\s*(.*)", re.IGNORECASE)
+            ]
+            
+            for pattern in patterns:
+                match = pattern.match(text)
+                if match:
+                    question = match.group(1).strip()
+                    logger.debug(f"Matched bot {bot_name} with question: {question}")
+                    if question:
+                        # Clear any previous conversation and set the new bot
+                        bot = BOTS[bot_name]
+                        response = bot.get_response(question)
+                        
+                        # Update conversation state
+                        conversation_histories[conversation_key] = {
+                            "current_bot": bot_name,
+                            "thread_ts": thread_ts,
+                            "history": [(question, response)]
+                        }
+                        logger.debug(f"Set conversation to use bot: {bot_name}")
+                        
+                        say(f"*{bot_name} says:*\n{response}", thread_ts=thread_ts)
+                        return
 
         # Help message for new conversations
         if not thread_ts:
@@ -94,42 +117,64 @@ def handle_app_mention(event, say, logger):
     text = event.get("text", "")
     user_id = event.get("user")
     cleaned_text = text.split(">", 1)[1].strip() if ">" in text else text
+    
+    logger.debug(f"Processing app_mention: {cleaned_text}")
 
-    # Direct bot request handling
-    for bot_name in BOTS.keys():
-        trigger = f"ask {bot_name.lower()}:"
-        if trigger in cleaned_text.lower():
-            try:
-                question = cleaned_text.lower().split(trigger)[1].strip()
-                if question:
-                    conversation_histories[conversation_key] = {
-                        "current_bot": bot_name,
-                        "thread_ts": thread_ts,
-                        "history": []
-                    }
-                    response = BOTS[bot_name].get_response(question)
-                    say(f"*{bot_name} says:*\n{response}", thread_ts=thread_ts)
-                    return
-            except Exception as e:
-                logger.error(f"Error processing bot request: {e}", exc_info=True)
-                return
-
-    # Check for ongoing conversation
+    # Check for ongoing conversation first
     if conversation_key in conversation_histories:
         current_bot = conversation_histories[conversation_key]["current_bot"]
         if current_bot:
-            try:
-                response = BOTS[current_bot].get_response(cleaned_text)
-                say(f"*{current_bot} says:*\n{response}", thread_ts=thread_ts)
-                return
-            except Exception as e:
-                logger.error(f"Error in ongoing conversation: {e}", exc_info=True)
-                return
+            logger.debug(f"Found ongoing conversation with {current_bot}")
+            # Check if this message is explicitly asking for a different bot
+            is_new_bot_request = False
+            for bot_name in BOTS.keys():
+                if re.search(rf"(?i)ask\s+{re.escape(bot_name)}|@{re.escape(bot_name)}|^{re.escape(bot_name)}\b", cleaned_text):
+                    is_new_bot_request = True
+                    break
+            
+            if not is_new_bot_request:
+                try:
+                    response = BOTS[current_bot].get_response(cleaned_text)
+                    say(f"*{current_bot} says:*\n{response}", thread_ts=thread_ts)
+                    return
+                except Exception as e:
+                    logger.error(f"Error in ongoing conversation: {e}", exc_info=True)
+                    return
+
+    # More flexible bot request handling with multiple patterns
+    for bot_name in BOTS.keys():
+        # Check various patterns: "ask bot:", "ask bot", "@bot", "bot:"
+        patterns = [
+            re.compile(rf"(?i)ask\s+{re.escape(bot_name)}:?\s*(.*)", re.IGNORECASE),
+            re.compile(rf"(?i)@{re.escape(bot_name)}:?\s*(.*)", re.IGNORECASE),
+            re.compile(rf"(?i){re.escape(bot_name)}:?\s*(.*)", re.IGNORECASE)
+        ]
+        
+        for pattern in patterns:
+            match = pattern.search(cleaned_text)
+            if match:
+                question = match.group(1).strip()
+                logger.debug(f"Matched bot {bot_name} with question: {question}")
+                if question:
+                    try:
+                        # Clear any previous conversation and set the new bot
+                        conversation_histories[conversation_key] = {
+                            "current_bot": bot_name,
+                            "thread_ts": thread_ts,
+                            "history": []
+                        }
+                        logger.debug(f"Set conversation to use bot: {bot_name}")
+                        response = BOTS[bot_name].get_response(question)
+                        say(f"*{bot_name} says:*\n{response}", thread_ts=thread_ts)
+                        return
+                    except Exception as e:
+                        logger.error(f"Error processing bot request: {e}", exc_info=True)
+                        return
 
     # Default message for new conversations
-    if not any(f"ask {bot.lower()}:" in cleaned_text.lower() for bot in BOTS.keys()):
-        bot_list = ", ".join(BOTS.keys())
-        say(f"Hi <@{user_id}>! You can ask any of our experts: {bot_list}\nTry: `Ask {list(BOTS.keys())[0]}: your question`", thread_ts=thread_ts)
+    bot_list = ", ".join(BOTS.keys())
+    say(f"Hi <@{user_id}>! You can ask any of our experts: {bot_list}\nTry: `Ask {list(BOTS.keys())[0]}: your question`", thread_ts=thread_ts)
+
 @app.command("/hello")
 def hello_command(ack, body, respond):
     ack()
