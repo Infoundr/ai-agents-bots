@@ -270,7 +270,7 @@ Click on ``Generate New Token`` and then once you've added ``Token Name`` and ``
 
 Once you're done click on ``Generate Token`` and then copy the token, since you won't be able to see it again. 
 
-![github command](./images/generate-token.png)
+![github command](./images/github-token.png)
 
 You will then paste the token in the ``/github`` popup command in the chat. 
 
