@@ -1,6 +1,6 @@
 pem_file = "./infoundr_identity.pem"
 ic_url = "http://localhost:8080"
 port = 13457
-oc_public_key = "-----BEGIN PUBLIC KEY-----\nMFkwEwYHKoZIzj0CAQYIKoZIzj0DAQcDQgAEW1Z0uDeQiWdgxlpsjmAfjPlSKtZT\nT1/7A3xcYeMq3mhUE4PHqLu4D+tdsE5ga+0jyh8PgfsnFBmxNE+F+nr2eg==\n-----END PUBLIC KEY-----\n"
+oc_public_key = "-----BEGIN PUBLIC KEY-----\nMFkwEwYHKoZIzj0CAQYIKoZIzj0DAQcDQgAEtF0POnprzqIiX5CS95BECA0uX2Pe\nydHc8LpadWZx1WdILqPMYHMHin6ZHmpikHSP5Gyznq6AXQPNpit1LsmR4w==\n-----END PUBLIC KEY-----\n"
 log_level = "INFO"
 python_api_url = "http://localhost:5005" 
