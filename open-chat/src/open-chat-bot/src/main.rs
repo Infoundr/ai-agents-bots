@@ -91,6 +91,9 @@ impl BackendCanisterAgent {
     }
 
     pub async fn ensure_user_registered(&self, openchat_id: String) -> Result<(), String> {
+        println!("Ensuring user is registered: {}", openchat_id);
+        println!("Backend canister ID: {:?}", BACKEND_CANISTER_ID);
+        println!("Agent: {:?}", self.agent);
         match self
             .agent
             .update(&BACKEND_CANISTER_ID, "ensure_openchat_user")
