@@ -898,7 +898,7 @@ impl oc_bots_sdk::api::command::CommandHandler<AgentRuntime> for BotCommandHandl
                     .await?;
 
                 let message = format!(
-                    "🎉 Access your personal dashboard:\nhttps://your-site.com/bot-login?token={}\n\n\
+                    "🎉 Access your personal dashboard:\nhttp://localhost:5173/bot-login?token={}\n\n\
                     There you can:\n\
                     • View all your chat history\n\
                     • Manage your tasks\n\
