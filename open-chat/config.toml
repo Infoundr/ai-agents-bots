@@ -4,3 +4,4 @@ port = 13457
 oc_public_key = "-----BEGIN PUBLIC KEY-----\nMFkwEwYHKoZIzj0CAQYIKoZIzj0DAQcDQgAEtF0POnprzqIiX5CS95BECA0uX2Pe\nydHc8LpadWZx1WdILqPMYHMHin6ZHmpikHSP5Gyznq6AXQPNpit1LsmR4w==\n-----END PUBLIC KEY-----\n"
 log_level = "INFO"
 python_api_url = "http://localhost:5005" 
+canister_id = "bkyz2-fmaaa-aaaaa-qaaaq"
