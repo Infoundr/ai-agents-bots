@@ -6,8 +6,9 @@ use axum::{
     Router,
     http::HeaderMap,
 };
+use candid::{CandidType, Encode, Principal};
 use dotenv::dotenv;
-use oc_bots_sdk::api::command::{CommandHandlerRegistry, CommandResponse};
+use oc_bots_sdk::{api::command::{CommandHandlerRegistry, CommandResponse}, types::BotCommandContext};
 use oc_bots_sdk::api::definition::{
     BotCommandDefinition, BotCommandParam, BotCommandParamType, BotDefinition, BotPermissions,
     MessagePermission, StringParam, BotCommandOptionChoice,
@@ -24,6 +25,7 @@ use tower_http::trace::TraceLayer;
 use tracing::{info, error};
 use tracing_subscriber::fmt::format::FmtSpan;
 use serde_json::json;
+use ic_agent::Agent;
 
 mod config;
 
@@ -40,6 +42,15 @@ struct AppState {
 struct PythonBotResponse {
     text: String,
     bot_name: String,
+}
+
+// Struct for registering a user 
+#[derive(CandidType)]
+pub struct OpenChatUser {
+    openchat_id: String,
+    site_principal: Option<Principal>,
+    first_interaction: u64, 
+    last_interaction: u64
 }
 
 // Python API error response
@@ -71,9 +82,11 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     // Get config file path from env - if not set, use default
     let config_file_path = std::env::var("CONFIG_FILE").unwrap_or("./config.toml".to_string());
+    println!("Config file path: {:?}", config_file_path);
 
     // Load & parse config
     let config = config::Config::from_file(&config_file_path)?;
+    println!("Config: {:?}", config);
 
     // Setup logging
     tracing_subscriber::fmt()
@@ -121,6 +134,15 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         http_client.clone(),
     );
     commands = commands.register(ask_handler);
+
+    // Register the dashboard command
+    let dashboard_handler = BotCommandHandler::new(
+        "dashboard".to_string(), 
+        "Dashboard Access".to_string(),
+        python_api_url.clone(),
+        http_client.clone(),
+    );
+    commands = commands.register(dashboard_handler);
 
     // Register the unified project command
     let project_handler = BotCommandHandler::new(
@@ -429,6 +451,25 @@ impl BotCommandHandler {
                 permissions: BotPermissions::from_message_permission(MessagePermission::Text),
                 default_role: None,
             },
+            "register" => BotCommandDefinition {
+                name: "register".to_string(),
+                description: Some("Register with the backend canister".to_string()),
+                placeholder: Some("Registering...".to_string()),
+                params: vec![BotCommandParam {
+                    name: "username".to_string(),
+                    description: Some("Your preferred username".to_string()),
+                    placeholder: Some("Enter username".to_string()),
+                    required: true,
+                    param_type: BotCommandParamType::StringParam(StringParam {
+                        min_length: 3,
+                        max_length: 50,
+                        choices: Vec::new(),
+                        multi_line: false,
+                    }),
+                }],
+                permissions: BotPermissions::from_message_permission(MessagePermission::Text),
+                default_role: None,
+            }, 
             _ => BotCommandDefinition {
                 name: command_name.clone(),
                 description: Some("Unknown command".to_string()),
@@ -447,6 +488,50 @@ impl BotCommandHandler {
             definition,
         }
     }
+
+    async fn ensure_user_registered(&self, context: &BotCommandContext) -> Result<(), String> {
+
+        // Get config file path from env - if not set, use default
+        let config_file_path = std::env::var("CONFIG_FILE").unwrap_or("./config.toml".to_string());
+        println!("Config file path: {:?}", config_file_path);
+
+        // Load & parse config
+        let config = config::Config::from_file(&config_file_path)
+            .map_err(|e| format!("Failed to load config: {}", e))?;
+        println!("Config: {:?}", config);
+
+        println!("Current directory: {:?}", std::env::current_dir().unwrap());
+        println!("Identity file path: {:?}", "./infoundr_identity.pem");
+
+        let openchat_id = context.command.initiator.to_string();
+
+        // Create agent 
+        let agent = Agent::builder()
+            .with_url(config.ic_url)
+            .with_identity(
+                ic_agent::identity::BasicIdentity::from_pem_file("./infoundr_identity.pem")
+            .map_err(|e| format!("Failed to load identity: {}", e))?
+            )
+            .build()
+            .map_err(|e| format!("Failed to build agent: {}", e))?;
+
+        let canister_id = Principal::from_text(
+            config.canister_id
+        )
+        .map_err(|e| format!("Invalid canister ID: {}", e))?;
+        
+        let args = Encode!(&openchat_id)
+            .map_err(|e| format!("Failed to encode arguments: {}", e))?;
+
+        let _ = agent
+            .update(&canister_id, "ensure_openchat_user")
+            .with_arg(&*args)
+            .call_and_wait()
+            .await
+            .map_err(|e| format!("Failed to register user: {}", e))?;
+    
+        Ok(())
+    }
 }
 
 // Bot command handler implementation
@@ -462,6 +547,12 @@ impl oc_bots_sdk::api::command::CommandHandler<AgentRuntime> for BotCommandHandl
         oc_client_factory: &ClientFactory<AgentRuntime>,
     ) -> Result<oc_bots_sdk::api::command::SuccessResult, String> {
         let user_id = context.command.initiator.to_string();
+        println!("User ID is: {}", user_id);
+        let command_initiator = context.command.initiator;
+        println!("Command Initiator is: {}", command_initiator);
+
+        // First ensure user is registered
+        self.ensure_user_registered(&context).await?;
 
         match self.command_name.as_str() {
             "ask" => {
@@ -781,7 +872,60 @@ impl oc_bots_sdk::api::command::CommandHandler<AgentRuntime> for BotCommandHandl
                     .execute_then_return_message(|_, _| ());
                 
                 Ok(oc_bots_sdk::api::command::SuccessResult { message })
-            },
+            }, 
+            "dashboard" => {
+                // Get config file path from env - if not set, use default
+                let config_file_path = std::env::var("CONFIG_FILE").unwrap_or("./config.toml".to_string());
+
+                // Load & parse config
+                let config = config::Config::from_file(&config_file_path)
+                    .map_err(|e| format!("Failed to load config: {}", e))?;
+
+                let openchat_id = context.command.initiator.to_string();
+
+                // Create agent
+                let agent = Agent::builder()
+                    .with_url(config.ic_url)
+                    .with_identity(
+                        ic_agent::identity::BasicIdentity::from_pem_file("./infoundr_identity.pem")
+                            .map_err(|e| format!("Failed to load identity: {}", e))?
+                    )
+                    .build()
+                    .map_err(|e| format!("Failed to build agent: {}", e))?;
+                
+                let canister_id = Principal::from_text(config.canister_id)
+                    .map_err(|e| format!("Invalid canister ID: {}", e))?;
+            
+                let args = Encode!(&openchat_id)
+                    .map_err(|e| format!("Failed to encode arguments: {}", e))?;
+            
+                let token: Vec<u8> = agent
+                    .update(&canister_id, "generate_dashboard_token")
+                    .with_arg(&*args)
+                    .call_and_wait()
+                    .await
+                    .map_err(|e| format!("Failed to generate token: {}", e))?;
+            
+                let token_str = String::from_utf8(token)
+                    .map_err(|e| format!("Invalid token response: {}", e))?;
+            
+                let message = format!(
+                    "🎉 Access your personal dashboard:\nhttps://your-site.com/bot-login?token={}\n\n\
+                     There you can:\n\
+                     • View all your chat history\n\
+                     • Manage your tasks\n\
+                     • Configure integrations\n\
+                     • And more!", 
+                    token_str
+                );
+            
+                let message = oc_client_factory
+                    .build(context)
+                    .send_text_message(message)
+                    .execute_then_return_message(|_, _| ());
+                
+                Ok(oc_bots_sdk::api::command::SuccessResult { message })
+            }
             _ => return Err("Unknown command".to_string()),
         }
     }
