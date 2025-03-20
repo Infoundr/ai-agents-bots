@@ -490,6 +490,8 @@ impl BotCommandHandler {
     }
 
     async fn ensure_user_registered(&self, context: &BotCommandContext) -> Result<(), String> {
+        // Load .env file if present
+        dotenv().ok();
 
         // Get config file path from env - if not set, use default
         let config_file_path = std::env::var("CONFIG_FILE").unwrap_or("./config.toml".to_string());
@@ -874,6 +876,9 @@ impl oc_bots_sdk::api::command::CommandHandler<AgentRuntime> for BotCommandHandl
                 Ok(oc_bots_sdk::api::command::SuccessResult { message })
             }, 
             "dashboard" => {
+                // Load .env file if present
+                dotenv().ok();
+
                 // Get config file path from env - if not set, use default
                 let config_file_path = std::env::var("CONFIG_FILE").unwrap_or("./config.toml".to_string());
 
