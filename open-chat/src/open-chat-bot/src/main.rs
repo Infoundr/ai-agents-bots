@@ -26,6 +26,7 @@ use tracing::{info, error};
 use tracing_subscriber::fmt::format::FmtSpan;
 use serde_json::json;
 use ic_agent::Agent;
+use std::sync::LazyLock;
 
 mod config;
 
@@ -75,6 +76,34 @@ struct CommandRequest {
     command_request: serde_json::Value,
 }
 
+// backend_canister_agent.rs
+static BACKEND_CANISTER_ID: LazyLock<Principal> = 
+    LazyLock::new(|| Principal::from_text("bkyz2-fmaaa-aaaaa-qaaaq-cai").unwrap());
+
+#[derive(Clone)]
+pub struct BackendCanisterAgent {
+    agent: Agent,
+}
+
+impl BackendCanisterAgent {
+    pub fn new(agent: Agent) -> BackendCanisterAgent {
+        BackendCanisterAgent { agent }
+    }
+
+    pub async fn ensure_user_registered(&self, openchat_id: String) -> Result<(), String> {
+        match self
+            .agent
+            .update(&BACKEND_CANISTER_ID, "ensure_openchat_user")
+            .with_arg(candid::encode_one(&openchat_id).unwrap())
+            .call_and_wait()
+            .await
+        {
+            Ok(_) => Ok(()),
+            Err(error) => Err(format!("Failed to register user: {error}")),
+        }
+    }
+}
+
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
     // Load .env file if present
@@ -98,6 +127,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     // Build agent for OpenChat communication
     let agent = oc_bots_sdk_offchain::build_agent(config.ic_url.clone(), &config.pem_file).await;
+    let backend_canister_agent = BackendCanisterAgent::new(agent.clone());
 
     // Create client factory
     let oc_client_factory = Arc::new(ClientFactory::new(AgentRuntime::new(
@@ -132,6 +162,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         "AI Assistant".to_string(),
         python_api_url.clone(),
         http_client.clone(),
+        backend_canister_agent.clone(),
     );
     commands = commands.register(ask_handler);
 
@@ -141,6 +172,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         "Dashboard Access".to_string(),
         python_api_url.clone(),
         http_client.clone(),
+        backend_canister_agent.clone(),
     );
     commands = commands.register(dashboard_handler);
 
@@ -150,6 +182,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         "Project Assistant".to_string(),
         python_api_url.clone(),
         http_client.clone(),
+        backend_canister_agent.clone(),
     );
     commands = commands.register(project_handler);
 
@@ -159,6 +192,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         "Help Assistant".to_string(),
         python_api_url.clone(),
         http_client.clone(),
+        backend_canister_agent.clone(),
     );
     commands = commands.register(help_handler);
 
@@ -168,6 +202,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         "GitHub Assistant".to_string(),
         python_api_url.clone(),
         http_client.clone(),
+        backend_canister_agent.clone(),
     );
     commands = commands.register(github_handler);
 
@@ -368,10 +403,11 @@ struct BotCommandHandler {
     python_api_url: String,
     http_client: ReqwestClient,
     definition: BotCommandDefinition,
+    backend_canister_agent: BackendCanisterAgent,
 }
 
 impl BotCommandHandler {
-    fn new(command_name: String, bot_name: String, python_api_url: String, http_client: ReqwestClient) -> Self {
+    fn new(command_name: String, bot_name: String, python_api_url: String, http_client: ReqwestClient, backend_canister_agent: BackendCanisterAgent) -> Self {
         let definition = match command_name.as_str() {
             "ask" => BotCommandDefinition {
                 name: command_name.clone(),
@@ -486,53 +522,13 @@ impl BotCommandHandler {
             python_api_url,
             http_client,
             definition,
+            backend_canister_agent,
         }
     }
 
     async fn ensure_user_registered(&self, context: &BotCommandContext) -> Result<(), String> {
-        // Load .env file if present
-        dotenv().ok();
-
-        // Get config file path from env - if not set, use default
-        let config_file_path = std::env::var("CONFIG_FILE").unwrap_or("./config.toml".to_string());
-        println!("Config file path: {:?}", config_file_path);
-
-        // Load & parse config
-        let config = config::Config::from_file(&config_file_path)
-            .map_err(|e| format!("Failed to load config: {}", e))?;
-        println!("Config: {:?}", config);
-
-        println!("Current directory: {:?}", std::env::current_dir().unwrap());
-        println!("Identity file path: {:?}", "./infoundr_identity.pem");
-
         let openchat_id = context.command.initiator.to_string();
-
-        // Create agent 
-        let agent = Agent::builder()
-            .with_url(config.ic_url)
-            .with_identity(
-                ic_agent::identity::BasicIdentity::from_pem_file("./infoundr_identity.pem")
-            .map_err(|e| format!("Failed to load identity: {}", e))?
-            )
-            .build()
-            .map_err(|e| format!("Failed to build agent: {}", e))?;
-
-        let canister_id = Principal::from_text(
-            config.canister_id
-        )
-        .map_err(|e| format!("Invalid canister ID: {}", e))?;
-        
-        let args = Encode!(&openchat_id)
-            .map_err(|e| format!("Failed to encode arguments: {}", e))?;
-
-        let _ = agent
-            .update(&canister_id, "ensure_openchat_user")
-            .with_arg(&*args)
-            .call_and_wait()
-            .await
-            .map_err(|e| format!("Failed to register user: {}", e))?;
-    
-        Ok(())
+        self.backend_canister_agent.ensure_user_registered(openchat_id).await
     }
 }
 
@@ -935,8 +931,6 @@ impl oc_bots_sdk::api::command::CommandHandler<AgentRuntime> for BotCommandHandl
         }
     }
 }
-
-
 
 // Add this function
 // fn verify_jwt(jwt: &str, public_key: &str) -> bool {
