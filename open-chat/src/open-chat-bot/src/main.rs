@@ -105,6 +105,22 @@ impl BackendCanisterAgent {
             Err(error) => Err(format!("Failed to register user: {error}")),
         }
     }
+
+    pub async fn generate_dashboard_token(&self, openchat_id: String) -> Result<String, String> {
+        let args = Encode!(&openchat_id)
+            .map_err(|e| format!("Failed to encode arguments: {}", e))?;
+    
+        let response: Vec<u8> = self.agent
+            .update(&BACKEND_CANISTER_ID, "generate_dashboard_token")
+            .with_arg(&*args)
+            .call_and_wait()
+            .await
+            .map_err(|e| format!("Failed to generate token: {}", e))?;
+    
+        // Convert Vec<u8> to String
+        String::from_utf8(response)
+            .map_err(|e| format!("Failed to decode token: {}", e))
+    }
 }
 
 #[tokio::main]
@@ -875,64 +891,32 @@ impl oc_bots_sdk::api::command::CommandHandler<AgentRuntime> for BotCommandHandl
                 Ok(oc_bots_sdk::api::command::SuccessResult { message })
             }, 
             "dashboard" => {
-                // Load .env file if present
-                dotenv().ok();
-
-                // Get config file path from env - if not set, use default
-                let config_file_path = std::env::var("CONFIG_FILE").unwrap_or("./config.toml".to_string());
-
-                // Load & parse config
-                let config = config::Config::from_file(&config_file_path)
-                    .map_err(|e| format!("Failed to load config: {}", e))?;
-
                 let openchat_id = context.command.initiator.to_string();
-
-                // Create agent
-                let agent = Agent::builder()
-                    .with_url(config.ic_url)
-                    .with_identity(
-                        ic_agent::identity::BasicIdentity::from_pem_file("./infoundr_identity.pem")
-                            .map_err(|e| format!("Failed to load identity: {}", e))?
-                    )
-                    .build()
-                    .map_err(|e| format!("Failed to build agent: {}", e))?;
                 
-                let canister_id = Principal::from_text(config.canister_id)
-                    .map_err(|e| format!("Invalid canister ID: {}", e))?;
-            
-                let args = Encode!(&openchat_id)
-                    .map_err(|e| format!("Failed to encode arguments: {}", e))?;
-            
-                let token: Vec<u8> = agent
-                    .update(&canister_id, "generate_dashboard_token")
-                    .with_arg(&*args)
-                    .call_and_wait()
-                    .await
-                    .map_err(|e| format!("Failed to generate token: {}", e))?;
-            
-                let token_str = String::from_utf8(token)
-                    .map_err(|e| format!("Invalid token response: {}", e))?;
-            
+                let token = self.backend_canister_agent
+                    .generate_dashboard_token(openchat_id)
+                    .await?;
+
                 let message = format!(
                     "🎉 Access your personal dashboard:\nhttps://your-site.com/bot-login?token={}\n\n\
-                     There you can:\n\
-                     • View all your chat history\n\
-                     • Manage your tasks\n\
-                     • Configure integrations\n\
-                     • And more!", 
-                    token_str
+                    There you can:\n\
+                    • View all your chat history\n\
+                    • Manage your tasks\n\
+                    • Configure integrations\n\
+                    • And more!", 
+                    token
                 );
-            
+
                 let message = oc_client_factory
                     .build(context)
                     .send_text_message(message)
                     .execute_then_return_message(|_, _| ());
                 
-                Ok(oc_bots_sdk::api::command::SuccessResult { message })
+                            Ok(oc_bots_sdk::api::command::SuccessResult { message })
+                        },
+                        _ => return Err("Unknown command".to_string()),
+                    }
             }
-            _ => return Err("Unknown command".to_string()),
-        }
-    }
 }
 
 // Add this function
