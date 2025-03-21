@@ -290,6 +290,21 @@ impl BackendCanisterAgent {
             .map(|_| ())
             .map_err(|e| format!("Failed to store Asana task: {}", e))
     }
+
+    // Update github selected repo
+    pub async fn update_github_selected_repo(&self, openchat_id: String, repo_name: String) -> Result<(), String> {
+        let identifier = UserIdentifier::OpenChatId(openchat_id);
+        let args = Encode!(&identifier, &repo_name)
+            .map_err(|e| format!("Failed to encode arguments: {}", e))?;
+    
+        self.agent
+            .update(&BACKEND_CANISTER_ID, "update_github_selected_repo")
+            .with_arg(&*args)
+            .call_and_wait()
+            .await
+            .map(|_| ())
+            .map_err(|e| format!("Failed to update GitHub selected repo: {}", e))
+    }
 }
 
 #[tokio::main]
@@ -1052,13 +1067,43 @@ impl oc_bots_sdk::api::command::CommandHandler<AgentRuntime> for BotCommandHandl
                             "user_id": user_id
                         }
                     }),
-                    "select" => json!({
-                        "command": "github_select_repo",
-                        "args": {
-                            "repo_name": params,
-                            "user_id": user_id
+                    "select" => {
+                        // Calling Python API to validate the repo exists and update backend
+                        let response = self.http_client
+                            .post(format!("{}/api/process_command", self.python_api_url))
+                            .json(&json!({
+                                "command": "github_select_repo",
+                                "args": {
+                                    "repo_name": params,
+                                    "user_id": user_id
+                                }
+                            }))
+                            .send()
+                            .await
+                            .map_err(|e| format!("Failed to call Python API: {}", e))?;
+
+                        let status = response.status();
+                        if !status.is_success() {
+                            match response.json::<PythonErrorResponse>().await {
+                                Ok(err) => return Err(err.error),
+                                Err(_) => return Err(format!("Python API returned error status: {}", status)),
+                            }
                         }
-                    }),
+
+                        // If Python API validates the repo successfully, update the backend
+                        self.backend_canister_agent
+                            .update_github_selected_repo(user_id.clone(), params.to_string())
+                            .await?;
+
+                        // Return the payload for the second API call
+                        json!({
+                            "command": "github_select_repo",
+                            "args": {
+                                "repo_name": params,
+                                "user_id": user_id
+                            }
+                        })
+                    },
                     "create" => {
                         let parts: Vec<&str> = params.splitn(2, " -- ").collect();
                         if parts.len() < 2 {
