@@ -50,7 +50,8 @@ struct PythonBotResponse {
 #[derive(Deserialize, Debug)]
 struct ResponseMetadata {
     selected_repo: Option<String>,
-    // Add other metadata fields as needed
+    workspace_id: Option<String>,
+    project_ids: Option<Vec<(String, String)>>, // (project_id, project_name)
 }
 
 // Struct for registering a user 
@@ -125,9 +126,9 @@ pub struct GitHubIssue {
 
 #[derive(CandidType)]
 pub struct AsanaConnection {
-    pub timestamp: u64,
     pub token: String,
-    pub workspace_id: Option<String>
+    pub workspace_id: String,
+    pub project_ids: Vec<(String, String)>, // (project_id, project_name)
 }
 
 #[derive(CandidType)]
@@ -232,11 +233,17 @@ impl BackendCanisterAgent {
     }
 
     // Store asana connection
-    pub async fn store_asana_connection(&self, openchat_id: String, connection: AsanaConnection) -> Result<(), String> {
+    pub async fn store_asana_connection(
+        &self, 
+        openchat_id: String, 
+        token: String,
+        workspace_id: String,
+        project_ids: Vec<(String, String)>
+    ) -> Result<(), String> {
         let identifier = UserIdentifier::OpenChatId(openchat_id);
-        let args = Encode!(&identifier, &connection)
+        let args = Encode!(&identifier, &token, &workspace_id, &project_ids)
             .map_err(|e| format!("Failed to encode arguments: {}", e))?;
-
+    
         self.agent
             .update(&BACKEND_CANISTER_ID, "store_asana_connection")
             .with_arg(&*args)
@@ -816,24 +823,19 @@ impl oc_bots_sdk::api::command::CommandHandler<AgentRuntime> for BotCommandHandl
 
                 let payload = match action.as_str() {
                     "connect" => {
-                        // Store Asana connection
-                        let connection = AsanaConnection {
-                            timestamp: env::now(),
-                            token: params.to_string(),
-                            workspace_id: None
-                        };
-
-                        self.backend_canister_agent
-                            .store_asana_connection(user_id.clone(), connection)
-                            .await?;
-                        
-                        serde_json::json!({
-                        "command": "project_connect",
-                        "args": {
-                            "token": params,
-                            "user_id": user_id
+                        if params.is_empty() {
+                            return Err("Please provide your Asana Personal Access Token. You can get it from https://app.asana.com/0/developer-console".to_string());
                         }
-                    })},
+            
+                        // First call Python API to validate token and get workspace info
+                        serde_json::json!({
+                            "command": "project_connect",
+                            "args": {
+                                "token": params,
+                                "user_id": user_id
+                            }
+                        })
+                    },     
                     "list" => serde_json::json!({
                         "command": "project_list_tasks",
                         "args": {
@@ -883,6 +885,29 @@ impl oc_bots_sdk::api::command::CommandHandler<AgentRuntime> for BotCommandHandl
                     Ok(resp) => resp,
                     Err(e) => return Err(format!("Failed to parse Python API response: {}", e)),
                 };
+
+                // If this was a connect command and it was successful, store the connection
+                if action == "connect" && status.is_success() {
+                    let workspace_id = bot_response.metadata
+                        .as_ref()
+                        .and_then(|m| m.workspace_id.clone())
+                        .unwrap_or_else(|| "default_workspace".to_string());
+                    
+                    let project_ids = bot_response.metadata
+                        .as_ref()
+                        .and_then(|m| m.project_ids.clone())
+                        .unwrap_or_default();
+
+                    self.backend_canister_agent
+                        .store_asana_connection(
+                            user_id.clone(),
+                            params.to_string(),
+                            workspace_id,
+                            project_ids
+                        )
+                        .await
+                        .map_err(|e| format!("Failed to save Asana connection: {}. Please try again or contact support if the issue persists.", e))?;
+                }
                 
                 let formatted_response = format!("*{}*\n{}", bot_response.bot_name, bot_response.text);
                 

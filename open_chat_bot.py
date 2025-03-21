@@ -92,23 +92,26 @@ def handle_project_command(command, args):
                         "bot_name": "Project Assistant"
                     }), 400
                 
-                # Use the first project
-                project = projects[0]
-                project_gids = {project['name']: project['gid']}
+                # Format project IDs as tuples of (id, name)
+                project_ids = [(p['gid'], p['name']) for p in projects]
                 
                 # Store the credentials
                 credential_store.store_asana_credentials(
                     user_id,
                     token,
                     workspace_gid,
-                    project_gids
+                    {p['name']: p['gid'] for p in projects}
                 )
                 
                 return jsonify({
                     "text": f"✅ Successfully connected your Asana account!\n"
                             f"Using workspace: {workspace['name']}\n"
-                            f"Using project: {project['name']}",
-                    "bot_name": "Project Assistant"
+                            f"Found {len(projects)} projects",
+                    "bot_name": "Project Assistant",
+                    "metadata": {
+                        "workspace_id": workspace_gid,
+                        "project_ids": project_ids
+                    }
                 })
                 
             except asana.rest.ApiException as e:
