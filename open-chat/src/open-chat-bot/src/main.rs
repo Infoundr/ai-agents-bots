@@ -506,22 +506,11 @@ impl BotCommandHandler {
                 permissions: BotPermissions::from_message_permission(MessagePermission::Text),
                 default_role: None,
             },
-            "register" => BotCommandDefinition {
-                name: "register".to_string(),
-                description: Some("Register with the backend canister".to_string()),
-                placeholder: Some("Registering...".to_string()),
-                params: vec![BotCommandParam {
-                    name: "username".to_string(),
-                    description: Some("Your preferred username".to_string()),
-                    placeholder: Some("Enter username".to_string()),
-                    required: true,
-                    param_type: BotCommandParamType::StringParam(StringParam {
-                        min_length: 3,
-                        max_length: 50,
-                        choices: Vec::new(),
-                        multi_line: false,
-                    }),
-                }],
+            "dashboard" => BotCommandDefinition {
+                name: "dashboard".to_string(),
+                description: Some("Log into your dashboard to see your activity".to_string()),
+                placeholder: Some("Fetching token...".to_string()),
+                params: vec![],
                 permissions: BotPermissions::from_message_permission(MessagePermission::Text),
                 default_role: None,
             }, 
