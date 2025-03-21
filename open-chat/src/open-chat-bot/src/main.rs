@@ -48,10 +48,17 @@ struct PythonBotResponse {
 }
 
 #[derive(Deserialize, Debug)]
+struct TaskDetails {
+    task_id: String,
+    title: String,
+}
+
+#[derive(Deserialize, Debug)]
 struct ResponseMetadata {
     selected_repo: Option<String>,
     workspace_id: Option<String>,
-    project_ids: Option<Vec<(String, String)>>, // (project_id, project_name)
+    project_ids: Option<Vec<(String, String)>>,
+    task_details: Option<TaskDetails>,
 }
 
 // Struct for registering a user 
@@ -133,10 +140,14 @@ pub struct AsanaConnection {
 
 #[derive(CandidType)]
 pub struct AsanaTask {
-    pub timestamp: u64,
+    pub id: String,
+    pub status: String,
     pub title: String,
+    pub creator: Principal,
+    pub platform_id: String,
     pub description: String,
-    pub status: String
+    pub platform: String,
+    pub created_at: u64,
 }
 
 // backend_canister_agent.rs
@@ -821,6 +832,7 @@ impl oc_bots_sdk::api::command::CommandHandler<AgentRuntime> for BotCommandHandl
                 };
                 info!("{}", processing_message);
 
+                // First get the payload from the match
                 let payload = match action.as_str() {
                     "connect" => {
                         if params.is_empty() {
@@ -843,12 +855,20 @@ impl oc_bots_sdk::api::command::CommandHandler<AgentRuntime> for BotCommandHandl
                         }
                     }),
                     "create" => {
+                        if params.is_empty() {
+                            return Err("Please provide a task description".to_string());
+                        }
+
                         // Store Asana task
                         let task = AsanaTask {
-                            timestamp: env::now(),
+                            id: params.to_string(), // This will be updated with actual task ID
+                            status: "active".to_string(),
                             title: params.to_string(),
+                            creator: Principal::from_text(context.command.initiator.to_string()).unwrap(),
+                            platform_id: "pending".to_string(), // This will be updated with actual task ID
                             description: params.to_string(),
-                            status: "active".to_string()
+                            platform: "asana".to_string(),
+                            created_at: env::now(),
                         };
 
                         self.backend_canister_agent
@@ -856,15 +876,17 @@ impl oc_bots_sdk::api::command::CommandHandler<AgentRuntime> for BotCommandHandl
                             .await?;
                         
                         serde_json::json!({
-                        "command": "project_create_task",
-                        "args": {
-                            "description": params,
-                            "user_id": user_id
-                        }
-                    })},
+                            "command": "project_create_task",
+                            "args": {
+                                "description": params,
+                                "user_id": user_id
+                            }
+                        })
+                    },
                     _ => return Err("Unknown project action. Available actions: connect, list, create".to_string()),
                 };
 
+                // Then handle the API call and response
                 let response = self.http_client
                     .post(format!("{}/api/process_command", self.python_api_url))
                     .json(&payload)
@@ -873,14 +895,14 @@ impl oc_bots_sdk::api::command::CommandHandler<AgentRuntime> for BotCommandHandl
                     .map_err(|e| format!("Failed to call Python API: {}", e))?;
 
                 let status = response.status();
-                
+
                 if !status.is_success() {
                     match response.json::<PythonErrorResponse>().await {
-                        Ok(err) => return Err(err.error),
-                        Err(_) => return Err(format!("Python API returned error status: {}", status)),
+                        Ok(err) => return Err(format!("Asana API error: {}", err.error)),
+                        Err(_) => return Err("Failed to connect to Asana. Please check your token and try again.".to_string()),
                     }
                 }
-                
+
                 let bot_response = match response.json::<PythonBotResponse>().await {
                     Ok(resp) => resp,
                     Err(e) => return Err(format!("Failed to parse Python API response: {}", e)),
