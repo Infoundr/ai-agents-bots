@@ -717,6 +717,10 @@ impl oc_bots_sdk::api::command::CommandHandler<AgentRuntime> for BotCommandHandl
             "help" => {
                 let help_text = "🤖 **Infoundr: The Genius AI Co-Founder and Assistant**\n\n".to_string() +
                     "I'm your AI-powered assistant that can help with various tasks:\n\n" +
+
+                    "**Dashboard Access** 🔐\n" +
+                    "Access your personal dashboard to manage all your interactions and settings:\n" +
+                    "`/dashboard` - Get a secure link to your personal dashboard\n\n" +
                     
                     "**Ask AI Experts** 📚\n" +
                     "You can ask any question to our AI experts, and they will answer you in a friendly and engaging way.\n" +
