@@ -123,12 +123,19 @@ pub struct GitHubConnection {
 }
 
 #[derive(CandidType)]
+pub enum IssueStatus {
+    Open,
+    Closed,
+}
+
+#[derive(CandidType)]
 pub struct GitHubIssue {
-    pub timestamp: u64,
-    pub repo: String,
+    pub id: String,
     pub title: String,
     pub body: String,
-    pub status: String
+    pub repository: String,
+    pub created_at: u64,
+    pub status: IssueStatus,
 }
 
 #[derive(CandidType)]
@@ -214,11 +221,16 @@ impl BackendCanisterAgent {
     }
 
     // Store github connection
-    pub async fn store_github_connection(&self, openchat_id: String, connection: GitHubConnection) -> Result<(), String> {
+    pub async fn store_github_connection(
+        &self, 
+        openchat_id: String,
+        token: String,
+        selected_repo: Option<String>
+    ) -> Result<(), String> {
         let identifier = UserIdentifier::OpenChatId(openchat_id);
-        let args = Encode!(&identifier, &connection)
+        let args = Encode!(&identifier, &token, &selected_repo)
             .map_err(|e| format!("Failed to encode arguments: {}", e))?;
-
+    
         self.agent
             .update(&BACKEND_CANISTER_ID, "store_github_connection")
             .with_arg(&*args)
@@ -1019,15 +1031,13 @@ impl oc_bots_sdk::api::command::CommandHandler<AgentRuntime> for BotCommandHandl
                 let payload = match action.as_str() {
                     "connect" => { 
                         // Store the github connection 
-                        let connection = GitHubConnection {
-                            timestamp: env::now(),
-                            token: params.to_string(),
-                            selected_repo: None
-                        };
-
                         self.backend_canister_agent
-                            .store_github_connection(user_id.clone(), connection)
-                            .await?;
+                        .store_github_connection(
+                            user_id.clone(),
+                            params.to_string(),
+                            None  // No repository selected yet
+                        )
+                        .await?;
 
                         json!({
                             "command": "github_connect",
@@ -1077,17 +1087,19 @@ impl oc_bots_sdk::api::command::CommandHandler<AgentRuntime> for BotCommandHandl
                             .await
                             .map_err(|e| format!("Failed to parse repository check response: {}", e))?;
 
-                        let repo = bot_response.metadata
-                            .and_then(|m| m.selected_repo)
-                            .ok_or_else(|| "No repository selected. Please select a repository first using `/github select <owner/repo>`".to_string())?;
+                        let repo = match &bot_response.metadata {
+                            Some(metadata) => metadata.selected_repo.clone(),
+                            None => None,
+                        }.ok_or_else(|| "No repository selected. Please select a repository first using `/github select <owner/repo>`".to_string())?;
 
-                        // Store GitHub issue
+                        // Store GitHub issue with updated structure
                         let issue = GitHubIssue {
-                            timestamp: env::now(),
-                            repo,
+                            id: format!("{}#{}", repo, env::now()),  // Create a unique ID
                             title: parts[0].trim().to_string(),
                             body: parts[1].trim().to_string(),
-                            status: "open".to_string()
+                            repository: repo.clone(),
+                            created_at: env::now(),
+                            status: IssueStatus::Open,
                         };
 
                         self.backend_canister_agent
@@ -1099,7 +1111,8 @@ impl oc_bots_sdk::api::command::CommandHandler<AgentRuntime> for BotCommandHandl
                             "args": {
                                 "title": parts[0].trim(),
                                 "body": parts[1].trim(),
-                                "user_id": user_id
+                                "user_id": user_id,
+                                "repo": repo
                             }
                         })
                     },

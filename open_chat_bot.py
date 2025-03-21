@@ -337,11 +337,17 @@ def handle_github_command(command, args):
             if not selected_repo:
                 return jsonify({
                     "text": "No repository is currently selected. Use `/github select <repository_name>` to select one.",
-                    "bot_name": "GitHub Assistant"
+                    "bot_name": "GitHub Assistant",
+                    "metadata": {
+                        "selected_repo": None
+                    }
                 })
             return jsonify({
                 "text": f"Currently connected repository: {selected_repo}",
-                "bot_name": "GitHub Assistant"
+                "bot_name": "GitHub Assistant",
+                "metadata": {
+                    "selected_repo": selected_repo
+                }
             })
             
     except Exception as e:

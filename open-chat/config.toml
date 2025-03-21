@@ -2,7 +2,7 @@ pem_file = "./infoundr_identity.pem"
 # ic_url = "http://localhost:8080"
 ic_url = "http://localhost:4943"
 port = 13457
-oc_public_key = "-----BEGIN PUBLIC KEY-----\nMFkwEwYHKoZIzj0CAQYIKoZIzj0DAQcDQgAE3MDtuBAMb9INxpRDbJVXC6L/x2MK\np6SgYNYpPqyEaacuO1Bua87seW1FPCsSGguqyCCs5PxmJL2PED/0MnCvPQ==\n-----END PUBLIC KEY-----\n"
+oc_public_key = "-----BEGIN PUBLIC KEY-----\nMFkwEwYHKoZIzj0CAQYIKoZIzj0DAQcDQgAEtzaTYGxi4cQfdnBYZ1uSp0ddbjck\nf7jg/FTITLMCc5hwrjpA2J+fC/zuGf5eQKGuvDEwHtnhWMmPnrTz91VXuQ==\n-----END PUBLIC KEY-----\n"
 log_level = "INFO"
 python_api_url = "http://localhost:5005" 
 canister_id = "bkyz2-fmaaa-aaaaa-qaaaq-cai"
