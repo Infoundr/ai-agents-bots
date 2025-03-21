@@ -96,6 +96,7 @@ pub struct ChatMessage {
     pub id: Principal,
     pub role: MessageRole,
     pub content: String,
+    pub question_asked: Option<String>,
     pub timestamp: u64,
     pub bot_name: Option<String>,
 }
@@ -774,6 +775,7 @@ impl oc_bots_sdk::api::command::CommandHandler<AgentRuntime> for BotCommandHandl
                     id: Principal::from_text(context.command.initiator.to_string()).unwrap(),
                     role: MessageRole::Assistant,
                     content: bot_response.text.clone(),
+                    question_asked: Some(question.to_string()), 
                     timestamp: env::now(),
                     bot_name: Some(expert.clone()),
                 };
