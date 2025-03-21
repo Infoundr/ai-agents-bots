@@ -76,6 +76,21 @@ struct CommandRequest {
     command_request: serde_json::Value,
 }
 
+// Structs to match the backend canister
+#[derive(CandidType)]
+pub struct ChatMessage {
+    timestamp: u64,
+    expert: String, 
+    questions: String, 
+    response: String
+}
+
+#[derive(CandidType)]
+pub enum UserIdentifier {
+    Principal(Principal),
+    OpenChatId(String),
+}
+
 // backend_canister_agent.rs
 static BACKEND_CANISTER_ID: LazyLock<Principal> = 
     LazyLock::new(|| Principal::from_text("bkyz2-fmaaa-aaaaa-qaaaq-cai").unwrap());
@@ -88,6 +103,20 @@ pub struct BackendCanisterAgent {
 impl BackendCanisterAgent {
     pub fn new(agent: Agent) -> BackendCanisterAgent {
         BackendCanisterAgent { agent }
+    }
+
+    pub async fn store_chat_message(&self, openchat_id: String, message: ChatMessage) -> Result<(), String> {
+        let identifier = UserIdentifier::OpenChatId(openchat_id);
+        let args = Encode!(&identifier, &message)
+            .map_err(|e| format!("Failed to encode arguments: {}", e))?;
+    
+        self.agent
+            .update(&BACKEND_CANISTER_ID, "store_chat_message")
+            .with_arg(&*args)
+            .call_and_wait()
+            .await
+            .map(|_| ()) // Convert Result<Vec<u8>, String> to Result<(), String>
+            .map_err(|e| format!("Failed to store chat message: {}", e))
     }
 
     pub async fn ensure_user_registered(&self, openchat_id: String) -> Result<(), String> {
@@ -630,6 +659,19 @@ impl oc_bots_sdk::api::command::CommandHandler<AgentRuntime> for BotCommandHandl
                     Ok(resp) => resp,
                     Err(e) => return Err(format!("Failed to parse Python API response: {}", e)),
                 };
+
+                // Store the chat message
+                let chat_message = ChatMessage {
+                    timestamp: env::now(),
+                    expert: expert.clone(),
+                    questions: question.to_string(),
+                    response: bot_response.text.clone(),
+                };
+
+                // Store in backend canister
+                self.backend_canister_agent
+                    .store_chat_message(user_id.clone(), chat_message)
+                    .await?;
                 
                 let formatted_response = format!("*{}*\n{}", bot_response.bot_name, bot_response.text);
                 
