@@ -43,6 +43,14 @@ struct AppState {
 struct PythonBotResponse {
     text: String,
     bot_name: String,
+    #[serde(default)]
+    metadata: Option<ResponseMetadata>,
+}
+
+#[derive(Deserialize, Debug)]
+struct ResponseMetadata {
+    selected_repo: Option<String>,
+    // Add other metadata fields as needed
 }
 
 // Struct for registering a user 
@@ -91,6 +99,37 @@ pub enum UserIdentifier {
     OpenChatId(String),
 }
 
+#[derive(CandidType)]
+pub struct GitHubConnection {
+    pub timestamp: u64,
+    pub token: String,
+    pub selected_repo: Option<String>
+}
+
+#[derive(CandidType)]
+pub struct GitHubIssue {
+    pub timestamp: u64,
+    pub repo: String,
+    pub title: String,
+    pub body: String,
+    pub status: String
+}
+
+#[derive(CandidType)]
+pub struct AsanaConnection {
+    pub timestamp: u64,
+    pub token: String,
+    pub workspace_id: Option<String>
+}
+
+#[derive(CandidType)]
+pub struct AsanaTask {
+    pub timestamp: u64,
+    pub title: String,
+    pub description: String,
+    pub status: String
+}
+
 // backend_canister_agent.rs
 static BACKEND_CANISTER_ID: LazyLock<Principal> = 
     LazyLock::new(|| Principal::from_text("bkyz2-fmaaa-aaaaa-qaaaq-cai").unwrap());
@@ -104,7 +143,8 @@ impl BackendCanisterAgent {
     pub fn new(agent: Agent) -> BackendCanisterAgent {
         BackendCanisterAgent { agent }
     }
-
+    
+    // Store chat message
     pub async fn store_chat_message(&self, openchat_id: String, message: ChatMessage) -> Result<(), String> {
         let identifier = UserIdentifier::OpenChatId(openchat_id);
         let args = Encode!(&identifier, &message)
@@ -119,6 +159,7 @@ impl BackendCanisterAgent {
             .map_err(|e| format!("Failed to store chat message: {}", e))
     }
 
+    // Ensure user is registered
     pub async fn ensure_user_registered(&self, openchat_id: String) -> Result<(), String> {
         println!("Ensuring user is registered: {}", openchat_id);
         println!("Backend canister ID: {:?}", BACKEND_CANISTER_ID);
@@ -135,6 +176,7 @@ impl BackendCanisterAgent {
         }
     }
 
+    // Generate dashboard token
     pub async fn generate_dashboard_token(&self, openchat_id: String) -> Result<String, String> {
         let args = Encode!(&openchat_id)
             .map_err(|e| format!("Failed to encode arguments: {}", e))?;
@@ -149,6 +191,66 @@ impl BackendCanisterAgent {
         // Convert Vec<u8> to String
         String::from_utf8(response)
             .map_err(|e| format!("Failed to decode token: {}", e))
+    }
+
+    // Store github connection
+    pub async fn store_github_connection(&self, openchat_id: String, connection: GitHubConnection) -> Result<(), String> {
+        let identifier = UserIdentifier::OpenChatId(openchat_id);
+        let args = Encode!(&identifier, &connection)
+            .map_err(|e| format!("Failed to encode arguments: {}", e))?;
+
+        self.agent
+            .update(&BACKEND_CANISTER_ID, "store_github_connection")
+            .with_arg(&*args)
+            .call_and_wait()
+            .await
+            .map(|_| ())
+            .map_err(|e| format!("Failed to store GitHub connection: {}", e))
+    }
+
+    // Store github issue
+    pub async fn store_github_issue(&self, openchat_id: String, issue: GitHubIssue) -> Result<(), String> {
+        let identifier = UserIdentifier::OpenChatId(openchat_id);
+        let args = Encode!(&identifier, &issue)
+            .map_err(|e| format!("Failed to encode arguments: {}", e))?;
+
+        self.agent
+            .update(&BACKEND_CANISTER_ID, "store_github_issue")
+            .with_arg(&*args)
+            .call_and_wait()
+            .await
+            .map(|_| ())
+            .map_err(|e| format!("Failed to store GitHub issue: {}", e))
+    }
+
+    // Store asana connection
+    pub async fn store_asana_connection(&self, openchat_id: String, connection: AsanaConnection) -> Result<(), String> {
+        let identifier = UserIdentifier::OpenChatId(openchat_id);
+        let args = Encode!(&identifier, &connection)
+            .map_err(|e| format!("Failed to encode arguments: {}", e))?;
+
+        self.agent
+            .update(&BACKEND_CANISTER_ID, "store_asana_connection")
+            .with_arg(&*args)
+            .call_and_wait()
+            .await
+            .map(|_| ())
+            .map_err(|e| format!("Failed to store Asana connection: {}", e))
+    }
+
+    // Store asana task
+    pub async fn store_asana_task(&self, openchat_id: String, task: AsanaTask) -> Result<(), String> {
+        let identifier = UserIdentifier::OpenChatId(openchat_id);
+        let args = Encode!(&identifier, &task)
+            .map_err(|e| format!("Failed to encode arguments: {}", e))?;
+
+        self.agent
+            .update(&BACKEND_CANISTER_ID, "store_asana_task")
+            .with_arg(&*args)
+            .call_and_wait()
+            .await
+            .map(|_| ())
+            .map_err(|e| format!("Failed to store Asana task: {}", e))
     }
 }
 
@@ -703,26 +805,51 @@ impl oc_bots_sdk::api::command::CommandHandler<AgentRuntime> for BotCommandHandl
                 info!("{}", processing_message);
 
                 let payload = match action.as_str() {
-                    "connect" => serde_json::json!({
+                    "connect" => {
+                        // Store Asana connection
+                        let connection = AsanaConnection {
+                            timestamp: env::now(),
+                            token: params.to_string(),
+                            workspace_id: None
+                        };
+
+                        self.backend_canister_agent
+                            .store_asana_connection(user_id.clone(), connection)
+                            .await?;
+                        
+                        serde_json::json!({
                         "command": "project_connect",
                         "args": {
                             "token": params,
                             "user_id": user_id
                         }
-                    }),
+                    })},
                     "list" => serde_json::json!({
                         "command": "project_list_tasks",
                         "args": {
                             "user_id": user_id
                         }
                     }),
-                    "create" => serde_json::json!({
+                    "create" => {
+                        // Store Asana task
+                        let task = AsanaTask {
+                            timestamp: env::now(),
+                            title: params.to_string(),
+                            description: params.to_string(),
+                            status: "active".to_string()
+                        };
+
+                        self.backend_canister_agent
+                            .store_asana_task(user_id.clone(), task)
+                            .await?;
+                        
+                        serde_json::json!({
                         "command": "project_create_task",
                         "args": {
                             "description": params,
                             "user_id": user_id
                         }
-                    }),
+                    })},
                     _ => return Err("Unknown project action. Available actions: connect, list, create".to_string()),
                 };
 
@@ -833,13 +960,25 @@ impl oc_bots_sdk::api::command::CommandHandler<AgentRuntime> for BotCommandHandl
                 info!("{}", processing_message);
 
                 let payload = match action.as_str() {
-                    "connect" => json!({
-                        "command": "github_connect",
-                        "args": {
-                            "token": params,
-                            "user_id": user_id
-                        }
-                    }),
+                    "connect" => { 
+                        // Store the github connection 
+                        let connection = GitHubConnection {
+                            timestamp: env::now(),
+                            token: params.to_string(),
+                            selected_repo: None
+                        };
+
+                        self.backend_canister_agent
+                            .store_github_connection(user_id.clone(), connection)
+                            .await?;
+
+                        json!({
+                            "command": "github_connect",
+                            "args": {
+                                "token": params,
+                                "user_id": user_id
+                            }
+                    })},
                     "list" => json!({
                         "command": "github_list_repos",
                         "args": {
@@ -863,6 +1002,41 @@ impl oc_bots_sdk::api::command::CommandHandler<AgentRuntime> for BotCommandHandl
                                 .execute_then_return_message(|_, _| ());
                             return Ok(oc_bots_sdk::api::command::SuccessResult { message });
                         }
+
+                        // First get the current repo from Python API
+                        let check_repo_response = self.http_client
+                            .post(format!("{}/api/process_command", self.python_api_url))
+                            .json(&json!({
+                                "command": "github_check_repo",
+                                "args": {
+                                    "user_id": user_id
+                                }
+                            }))
+                            .send()
+                            .await
+                            .map_err(|e| format!("Failed to check repository: {}", e))?;
+
+                        let bot_response: PythonBotResponse = check_repo_response.json()
+                            .await
+                            .map_err(|e| format!("Failed to parse repository check response: {}", e))?;
+
+                        let repo = bot_response.metadata
+                            .and_then(|m| m.selected_repo)
+                            .ok_or_else(|| "No repository selected. Please select a repository first using `/github select <owner/repo>`".to_string())?;
+
+                        // Store GitHub issue
+                        let issue = GitHubIssue {
+                            timestamp: env::now(),
+                            repo,
+                            title: parts[0].trim().to_string(),
+                            body: parts[1].trim().to_string(),
+                            status: "open".to_string()
+                        };
+
+                        self.backend_canister_agent
+                            .store_github_issue(user_id.clone(), issue)
+                            .await?;
+
                         json!({
                             "command": "github_create_issue",
                             "args": {
