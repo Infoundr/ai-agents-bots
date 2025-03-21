@@ -86,11 +86,18 @@ struct CommandRequest {
 
 // Structs to match the backend canister
 #[derive(CandidType)]
+pub enum MessageRole {
+    User,
+    Assistant,
+}
+
+#[derive(CandidType)]
 pub struct ChatMessage {
-    timestamp: u64,
-    expert: String, 
-    questions: String, 
-    response: String
+    pub id: Principal,
+    pub role: MessageRole,
+    pub content: String,
+    pub timestamp: u64,
+    pub bot_name: Option<String>,
 }
 
 #[derive(CandidType)]
@@ -764,10 +771,11 @@ impl oc_bots_sdk::api::command::CommandHandler<AgentRuntime> for BotCommandHandl
 
                 // Store the chat message
                 let chat_message = ChatMessage {
+                    id: Principal::from_text(context.command.initiator.to_string()).unwrap(),
+                    role: MessageRole::Assistant,
+                    content: bot_response.text.clone(),
                     timestamp: env::now(),
-                    expert: expert.clone(),
-                    questions: question.to_string(),
-                    response: bot_response.text.clone(),
+                    bot_name: Some(expert.clone()),
                 };
 
                 // Store in backend canister
