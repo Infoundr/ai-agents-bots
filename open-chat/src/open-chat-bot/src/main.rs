@@ -2,9 +2,11 @@ use axum::{
     body::Bytes,
     extract::State,
     http::StatusCode,
-    routing::{get, post},
+    routing::{get, post, options},
     Router,
     http::HeaderMap,
+    http::HeaderValue,
+    http::Method,
 };
 use candid::{CandidType, Encode, Principal};
 use dotenv::dotenv;
@@ -20,13 +22,15 @@ use reqwest::Client as ReqwestClient;
 use serde::Deserialize;
 use std::net::{Ipv4Addr, SocketAddr};
 use std::sync::Arc;
-use tower_http::cors::CorsLayer;
 use tower_http::trace::TraceLayer;
 use tracing::{info, error};
 use tracing_subscriber::fmt::format::FmtSpan;
 use serde_json::json;
 use ic_agent::Agent;
 use std::sync::LazyLock;
+use tower_http::cors::{Any, CorsLayer};
+use axum::response::IntoResponse;
+use axum::response::Response;
 
 mod config;
 
@@ -159,7 +163,7 @@ pub struct AsanaTask {
 
 // backend_canister_agent.rs
 static BACKEND_CANISTER_ID: LazyLock<Principal> = 
-    LazyLock::new(|| Principal::from_text("bkyz2-fmaaa-aaaaa-qaaaq-cai").unwrap());
+    LazyLock::new(|| Principal::from_text("").unwrap());
 
 #[derive(Clone)]
 pub struct BackendCanisterAgent {
@@ -418,11 +422,19 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     };
 
     // Create router with endpoints
+    let cors = CorsLayer::new()
+        .allow_origin("*".parse::<HeaderValue>().unwrap())
+        .allow_methods([Method::GET, Method::POST, Method::OPTIONS])
+        .allow_headers(Any)
+        .expose_headers(Any);
+
     let app = Router::new()
         .route("/", get(bot_definition))
+        .route("/bot_definition", get(bot_definition)) 
+        .route("/", options(handle_options))
         .route("/execute", post(execute_command))
         .route("/execute_command", post(execute_command))
-        .layer(CorsLayer::permissive())
+        .layer(cors)
         .layer(TraceLayer::new_for_http())
         .with_state(Arc::new(app_state));
 
@@ -512,7 +524,7 @@ fn create_project_command_definitions() -> Vec<BotCommandDefinition> {
 }
 
 // Bot definition endpoint
-async fn bot_definition(State(state): State<Arc<AppState>>) -> (StatusCode, Bytes) {
+async fn bot_definition(State(state): State<Arc<AppState>>) -> impl IntoResponse {
     let commands = state.commands.definitions();
     
     let definition = BotDefinition {
@@ -521,8 +533,15 @@ async fn bot_definition(State(state): State<Arc<AppState>>) -> (StatusCode, Byte
         autonomous_config: None,
     };
 
+    // Explicit headers
     (
         StatusCode::OK,
+        [
+            ("Content-Type", "application/json"),
+            ("Access-Control-Allow-Origin", "*"),
+            ("Access-Control-Allow-Methods", "GET, POST, OPTIONS"),
+            ("Access-Control-Allow-Headers", "*"),
+        ],
         Bytes::from(serde_json::to_vec(&definition).unwrap()),
     )
 }
@@ -532,7 +551,7 @@ async fn execute_command(
     State(state): State<Arc<AppState>>, 
     headers: HeaderMap,
     bytes: Bytes,
-) -> (StatusCode, Bytes) {
+) -> Response {
     info!("=== Command Execution Start ===");
     info!("Headers: {:?}", headers);
     
@@ -546,19 +565,13 @@ async fn execute_command(
                 },
                 Err(e) => {
                     error!("Invalid JWT header value: {}", e);
-                    return (
-                        StatusCode::BAD_REQUEST,
-                        Bytes::from("Invalid JWT header value"),
-                    );
+                    return Response::new(Bytes::from("Invalid JWT header value").into());
                 }
             }
         },
         None => {
             error!("No JWT found in x-oc-jwt header");
-            return (
-                StatusCode::BAD_REQUEST,
-                Bytes::from("Missing JWT header"),
-            );
+            return Response::new(Bytes::from("Missing JWT header").into());
         }
     };
 
@@ -576,25 +589,41 @@ async fn execute_command(
     match result {
         CommandResponse::Success(r) => {
             info!("Command executed successfully");
-            (StatusCode::OK, Bytes::from(serde_json::to_vec(&r).unwrap()))
+            let body = serde_json::to_vec(&r).unwrap();
+            let mut response = Response::new(body.into());
+            response.headers_mut().insert(
+                "Content-Type",
+                HeaderValue::from_static("application/json"),
+            );
+            response.headers_mut().insert(
+                "Access-Control-Allow-Origin",
+                HeaderValue::from_static("*"),
+            );
+            *response.status_mut() = StatusCode::OK;
+            response
         }
         CommandResponse::BadRequest(r) => {
             error!("Bad request: {:?}", r);
-            (
-                StatusCode::BAD_REQUEST,
-                Bytes::from(serde_json::to_vec(&r).unwrap()),
-            )
+            let body = serde_json::to_vec(&r).unwrap();
+            let mut response = Response::new(body.into());
+            response.headers_mut().insert(
+                "Content-Type",
+                HeaderValue::from_static("application/json"),
+            );
+            *response.status_mut() = StatusCode::BAD_REQUEST;
+            response
         }
         CommandResponse::InternalError(err) => {
             error!("Internal error: {:?}", err);
-            (
-                StatusCode::INTERNAL_SERVER_ERROR,
-                Bytes::from(format!("{err:?}")),
-            )
+            let mut response = Response::new(Bytes::from(format!("{err:?}")).into());
+            *response.status_mut() = StatusCode::INTERNAL_SERVER_ERROR;
+            response
         }
         CommandResponse::TooManyRequests => {
             error!("Too many requests");
-            (StatusCode::TOO_MANY_REQUESTS, Bytes::new())
+            let mut response = Response::new(Bytes::new().into());
+            *response.status_mut() = StatusCode::TOO_MANY_REQUESTS;
+            response
         }
     }
 }
@@ -1241,6 +1270,18 @@ impl oc_bots_sdk::api::command::CommandHandler<AgentRuntime> for BotCommandHandl
                         _ => return Err("Unknown command".to_string()),
                     }
             }
+}
+
+// Add this function to handle OPTIONS requests
+async fn handle_options() -> impl IntoResponse {
+    (
+        StatusCode::OK,
+        [
+            ("Access-Control-Allow-Origin", "*"),
+            ("Access-Control-Allow-Methods", "GET, POST, OPTIONS"),
+            ("Access-Control-Allow-Headers", "*"),
+        ],
+    )
 }
 
 // Add this function
