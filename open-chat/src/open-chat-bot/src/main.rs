@@ -159,7 +159,7 @@ pub struct AsanaTask {
 
 // backend_canister_agent.rs
 static BACKEND_CANISTER_ID: LazyLock<Principal> = 
-    LazyLock::new(|| Principal::from_text("bkyz2-fmaaa-aaaaa-qaaaq-cai").unwrap());
+    LazyLock::new(|| Principal::from_text("mdwwn-niaaa-aaaab-qabta-cai").unwrap());
 
 #[derive(Clone)]
 pub struct BackendCanisterAgent {
@@ -420,6 +420,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     // Create router with endpoints
     let app = Router::new()
         .route("/", get(bot_definition))
+        .route("/bot_definition", get(bot_definition)) 
         .route("/execute", post(execute_command))
         .route("/execute_command", post(execute_command))
         .layer(CorsLayer::permissive())
@@ -1089,6 +1090,9 @@ impl oc_bots_sdk::api::command::CommandHandler<AgentRuntime> for BotCommandHandl
                                 Err(_) => return Err(format!("Python API returned error status: {}", status)),
                             }
                         }
+                        println!("Python API validated the repo successfully");
+                        println!("Params: {}", params);
+                        println!("User ID: {}", user_id);
 
                         // If Python API validates the repo successfully, update the backend
                         self.backend_canister_agent
@@ -1222,7 +1226,7 @@ impl oc_bots_sdk::api::command::CommandHandler<AgentRuntime> for BotCommandHandl
                     .await?;
 
                 let message = format!(
-                    "🎉 Access your personal dashboard:\nhttp://localhost:5173/bot-login?token={}\n\n\
+                    "🎉 Access your personal dashboard:\nhttps://ocpcu-jaaaa-aaaab-qab6q-cai.icp0.io/bot-login?token={}\n\n\
                     There you can:\n\
                     • View all your chat history\n\
                     • Manage your tasks\n\
