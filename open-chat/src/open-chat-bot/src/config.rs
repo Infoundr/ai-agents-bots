@@ -2,7 +2,7 @@ use serde::Deserialize;
 use std::fs;
 use tracing::Level;
 
-#[derive(Deserialize, Debug)]
+#[derive(Deserialize, Debug, Clone)]
 pub struct Config {
     pub pem_file: String,
     pub ic_url: String,
@@ -11,6 +11,7 @@ pub struct Config {
     pub python_api_url: String,
     #[serde(with = "LevelDef")]
     pub log_level: Level,
+    pub canister_id: String,
 }
 
 #[derive(Deserialize)]

@@ -6,8 +6,9 @@ use axum::{
     Router,
     http::HeaderMap,
 };
+use candid::{CandidType, Encode, Principal};
 use dotenv::dotenv;
-use oc_bots_sdk::api::command::{CommandHandlerRegistry, CommandResponse};
+use oc_bots_sdk::{api::command::{CommandHandlerRegistry, CommandResponse}, types::BotCommandContext};
 use oc_bots_sdk::api::definition::{
     BotCommandDefinition, BotCommandParam, BotCommandParamType, BotDefinition, BotPermissions,
     MessagePermission, StringParam, BotCommandOptionChoice,
@@ -24,6 +25,8 @@ use tower_http::trace::TraceLayer;
 use tracing::{info, error};
 use tracing_subscriber::fmt::format::FmtSpan;
 use serde_json::json;
+use ic_agent::Agent;
+use std::sync::LazyLock;
 
 mod config;
 
@@ -40,6 +43,31 @@ struct AppState {
 struct PythonBotResponse {
     text: String,
     bot_name: String,
+    #[serde(default)]
+    metadata: Option<ResponseMetadata>,
+}
+
+#[derive(Deserialize, Debug)]
+struct TaskDetails {
+    task_id: String,
+    title: String,
+}
+
+#[derive(Deserialize, Debug)]
+struct ResponseMetadata {
+    selected_repo: Option<String>,
+    workspace_id: Option<String>,
+    project_ids: Option<Vec<(String, String)>>,
+    task_details: Option<TaskDetails>,
+}
+
+// Struct for registering a user 
+#[derive(CandidType)]
+pub struct OpenChatUser {
+    openchat_id: String,
+    site_principal: Option<Principal>,
+    first_interaction: u64, 
+    last_interaction: u64
 }
 
 // Python API error response
@@ -64,6 +92,221 @@ struct CommandRequest {
     command_request: serde_json::Value,
 }
 
+// Structs to match the backend canister
+#[derive(CandidType)]
+pub enum MessageRole {
+    User,
+    Assistant,
+}
+
+#[derive(CandidType)]
+pub struct ChatMessage {
+    pub id: Principal,
+    pub role: MessageRole,
+    pub content: String,
+    pub question_asked: Option<String>,
+    pub timestamp: u64,
+    pub bot_name: Option<String>,
+}
+
+#[derive(CandidType)]
+pub enum UserIdentifier {
+    Principal(Principal),
+    OpenChatId(String),
+}
+
+#[derive(CandidType)]
+pub struct GitHubConnection {
+    pub timestamp: u64,
+    pub token: String,
+    pub selected_repo: Option<String>
+}
+
+#[derive(CandidType)]
+pub enum IssueStatus {
+    Open,
+    Closed,
+}
+
+#[derive(CandidType)]
+pub struct GitHubIssue {
+    pub id: String,
+    pub title: String,
+    pub body: String,
+    pub repository: String,
+    pub created_at: u64,
+    pub status: IssueStatus,
+}
+
+#[derive(CandidType)]
+pub struct AsanaConnection {
+    pub token: String,
+    pub workspace_id: String,
+    pub project_ids: Vec<(String, String)>, // (project_id, project_name)
+}
+
+#[derive(CandidType)]
+pub struct AsanaTask {
+    pub id: String,
+    pub status: String,
+    pub title: String,
+    pub creator: Principal,
+    pub platform_id: String,
+    pub description: String,
+    pub platform: String,
+    pub created_at: u64,
+}
+
+// backend_canister_agent.rs
+static BACKEND_CANISTER_ID: LazyLock<Principal> = 
+    LazyLock::new(|| Principal::from_text("bkyz2-fmaaa-aaaaa-qaaaq-cai").unwrap());
+
+#[derive(Clone)]
+pub struct BackendCanisterAgent {
+    agent: Agent,
+}
+
+impl BackendCanisterAgent {
+    pub fn new(agent: Agent) -> BackendCanisterAgent {
+        BackendCanisterAgent { agent }
+    }
+    
+    // Store chat message
+    pub async fn store_chat_message(&self, openchat_id: String, message: ChatMessage) -> Result<(), String> {
+        let identifier = UserIdentifier::OpenChatId(openchat_id);
+        let args = Encode!(&identifier, &message)
+            .map_err(|e| format!("Failed to encode arguments: {}", e))?;
+    
+        self.agent
+            .update(&BACKEND_CANISTER_ID, "store_chat_message")
+            .with_arg(&*args)
+            .call_and_wait()
+            .await
+            .map(|_| ()) // Convert Result<Vec<u8>, String> to Result<(), String>
+            .map_err(|e| format!("Failed to store chat message: {}", e))
+    }
+
+    // Ensure user is registered
+    pub async fn ensure_user_registered(&self, openchat_id: String) -> Result<(), String> {
+        println!("Ensuring user is registered: {}", openchat_id);
+        println!("Backend canister ID: {:?}", BACKEND_CANISTER_ID);
+        println!("Agent: {:?}", self.agent);
+        match self
+            .agent
+            .update(&BACKEND_CANISTER_ID, "ensure_openchat_user")
+            .with_arg(candid::encode_one(&openchat_id).unwrap())
+            .call_and_wait()
+            .await
+        {
+            Ok(_) => Ok(()),
+            Err(error) => Err(format!("Failed to register user: {error}")),
+        }
+    }
+
+    // Generate dashboard token
+    pub async fn generate_dashboard_token(&self, openchat_id: String) -> Result<String, String> {
+        let args = Encode!(&openchat_id)
+            .map_err(|e| format!("Failed to encode arguments: {}", e))?;
+    
+        let response: Vec<u8> = self.agent
+            .update(&BACKEND_CANISTER_ID, "generate_dashboard_token")
+            .with_arg(&*args)
+            .call_and_wait()
+            .await
+            .map_err(|e| format!("Failed to generate token: {}", e))?;
+    
+        // Convert Vec<u8> to String
+        String::from_utf8(response)
+            .map_err(|e| format!("Failed to decode token: {}", e))
+    }
+
+    // Store github connection
+    pub async fn store_github_connection(
+        &self, 
+        openchat_id: String,
+        token: String,
+        selected_repo: Option<String>
+    ) -> Result<(), String> {
+        let identifier = UserIdentifier::OpenChatId(openchat_id);
+        let args = Encode!(&identifier, &token, &selected_repo)
+            .map_err(|e| format!("Failed to encode arguments: {}", e))?;
+    
+        self.agent
+            .update(&BACKEND_CANISTER_ID, "store_github_connection")
+            .with_arg(&*args)
+            .call_and_wait()
+            .await
+            .map(|_| ())
+            .map_err(|e| format!("Failed to store GitHub connection: {}", e))
+    }
+
+    // Store github issue
+    pub async fn store_github_issue(&self, openchat_id: String, issue: GitHubIssue) -> Result<(), String> {
+        let identifier = UserIdentifier::OpenChatId(openchat_id);
+        let args = Encode!(&identifier, &issue)
+            .map_err(|e| format!("Failed to encode arguments: {}", e))?;
+
+        self.agent
+            .update(&BACKEND_CANISTER_ID, "store_github_issue")
+            .with_arg(&*args)
+            .call_and_wait()
+            .await
+            .map(|_| ())
+            .map_err(|e| format!("Failed to store GitHub issue: {}", e))
+    }
+
+    // Store asana connection
+    pub async fn store_asana_connection(
+        &self, 
+        openchat_id: String, 
+        token: String,
+        workspace_id: String,
+        project_ids: Vec<(String, String)>
+    ) -> Result<(), String> {
+        let identifier = UserIdentifier::OpenChatId(openchat_id);
+        let args = Encode!(&identifier, &token, &workspace_id, &project_ids)
+            .map_err(|e| format!("Failed to encode arguments: {}", e))?;
+    
+        self.agent
+            .update(&BACKEND_CANISTER_ID, "store_asana_connection")
+            .with_arg(&*args)
+            .call_and_wait()
+            .await
+            .map(|_| ())
+            .map_err(|e| format!("Failed to store Asana connection: {}", e))
+    }
+
+    // Store asana task
+    pub async fn store_asana_task(&self, openchat_id: String, task: AsanaTask) -> Result<(), String> {
+        let identifier = UserIdentifier::OpenChatId(openchat_id);
+        let args = Encode!(&identifier, &task)
+            .map_err(|e| format!("Failed to encode arguments: {}", e))?;
+
+        self.agent
+            .update(&BACKEND_CANISTER_ID, "store_asana_task")
+            .with_arg(&*args)
+            .call_and_wait()
+            .await
+            .map(|_| ())
+            .map_err(|e| format!("Failed to store Asana task: {}", e))
+    }
+
+    // Update github selected repo
+    pub async fn update_github_selected_repo(&self, openchat_id: String, repo_name: String) -> Result<(), String> {
+        let identifier = UserIdentifier::OpenChatId(openchat_id);
+        let args = Encode!(&identifier, &repo_name)
+            .map_err(|e| format!("Failed to encode arguments: {}", e))?;
+    
+        self.agent
+            .update(&BACKEND_CANISTER_ID, "update_github_selected_repo")
+            .with_arg(&*args)
+            .call_and_wait()
+            .await
+            .map(|_| ())
+            .map_err(|e| format!("Failed to update GitHub selected repo: {}", e))
+    }
+}
+
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
     // Load .env file if present
@@ -71,9 +314,11 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     // Get config file path from env - if not set, use default
     let config_file_path = std::env::var("CONFIG_FILE").unwrap_or("./config.toml".to_string());
+    println!("Config file path: {:?}", config_file_path);
 
     // Load & parse config
     let config = config::Config::from_file(&config_file_path)?;
+    println!("Config: {:?}", config);
 
     // Setup logging
     tracing_subscriber::fmt()
@@ -85,6 +330,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     // Build agent for OpenChat communication
     let agent = oc_bots_sdk_offchain::build_agent(config.ic_url.clone(), &config.pem_file).await;
+    let backend_canister_agent = BackendCanisterAgent::new(agent.clone());
 
     // Create client factory
     let oc_client_factory = Arc::new(ClientFactory::new(AgentRuntime::new(
@@ -119,8 +365,19 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         "AI Assistant".to_string(),
         python_api_url.clone(),
         http_client.clone(),
+        backend_canister_agent.clone(),
     );
     commands = commands.register(ask_handler);
+
+    // Register the dashboard command
+    let dashboard_handler = BotCommandHandler::new(
+        "dashboard".to_string(), 
+        "Dashboard Access".to_string(),
+        python_api_url.clone(),
+        http_client.clone(),
+        backend_canister_agent.clone(),
+    );
+    commands = commands.register(dashboard_handler);
 
     // Register the unified project command
     let project_handler = BotCommandHandler::new(
@@ -128,6 +385,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         "Project Assistant".to_string(),
         python_api_url.clone(),
         http_client.clone(),
+        backend_canister_agent.clone(),
     );
     commands = commands.register(project_handler);
 
@@ -137,6 +395,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         "Help Assistant".to_string(),
         python_api_url.clone(),
         http_client.clone(),
+        backend_canister_agent.clone(),
     );
     commands = commands.register(help_handler);
 
@@ -146,6 +405,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         "GitHub Assistant".to_string(),
         python_api_url.clone(),
         http_client.clone(),
+        backend_canister_agent.clone(),
     );
     commands = commands.register(github_handler);
 
@@ -346,10 +606,11 @@ struct BotCommandHandler {
     python_api_url: String,
     http_client: ReqwestClient,
     definition: BotCommandDefinition,
+    backend_canister_agent: BackendCanisterAgent,
 }
 
 impl BotCommandHandler {
-    fn new(command_name: String, bot_name: String, python_api_url: String, http_client: ReqwestClient) -> Self {
+    fn new(command_name: String, bot_name: String, python_api_url: String, http_client: ReqwestClient, backend_canister_agent: BackendCanisterAgent) -> Self {
         let definition = match command_name.as_str() {
             "ask" => BotCommandDefinition {
                 name: command_name.clone(),
@@ -429,6 +690,14 @@ impl BotCommandHandler {
                 permissions: BotPermissions::from_message_permission(MessagePermission::Text),
                 default_role: None,
             },
+            "dashboard" => BotCommandDefinition {
+                name: "dashboard".to_string(),
+                description: Some("Log into your dashboard to see your activity".to_string()),
+                placeholder: Some("Fetching token...".to_string()),
+                params: vec![],
+                permissions: BotPermissions::from_message_permission(MessagePermission::Text),
+                default_role: None,
+            }, 
             _ => BotCommandDefinition {
                 name: command_name.clone(),
                 description: Some("Unknown command".to_string()),
@@ -445,7 +714,13 @@ impl BotCommandHandler {
             python_api_url,
             http_client,
             definition,
+            backend_canister_agent,
         }
+    }
+
+    async fn ensure_user_registered(&self, context: &BotCommandContext) -> Result<(), String> {
+        let openchat_id = context.command.initiator.to_string();
+        self.backend_canister_agent.ensure_user_registered(openchat_id).await
     }
 }
 
@@ -462,6 +737,12 @@ impl oc_bots_sdk::api::command::CommandHandler<AgentRuntime> for BotCommandHandl
         oc_client_factory: &ClientFactory<AgentRuntime>,
     ) -> Result<oc_bots_sdk::api::command::SuccessResult, String> {
         let user_id = context.command.initiator.to_string();
+        println!("User ID is: {}", user_id);
+        let command_initiator = context.command.initiator;
+        println!("Command Initiator is: {}", command_initiator);
+
+        // First ensure user is registered
+        self.ensure_user_registered(&context).await?;
 
         match self.command_name.as_str() {
             "ask" => {
@@ -533,6 +814,21 @@ impl oc_bots_sdk::api::command::CommandHandler<AgentRuntime> for BotCommandHandl
                     Ok(resp) => resp,
                     Err(e) => return Err(format!("Failed to parse Python API response: {}", e)),
                 };
+
+                // Store the chat message
+                let chat_message = ChatMessage {
+                    id: Principal::from_text(context.command.initiator.to_string()).unwrap(),
+                    role: MessageRole::Assistant,
+                    content: bot_response.text.clone(),
+                    question_asked: Some(question.to_string()), 
+                    timestamp: env::now(),
+                    bot_name: Some(expert.clone()),
+                };
+
+                // Store in backend canister
+                self.backend_canister_agent
+                    .store_chat_message(user_id.clone(), chat_message)
+                    .await?;
                 
                 let formatted_response = format!("*{}*\n{}", bot_response.bot_name, bot_response.text);
                 
@@ -563,30 +859,61 @@ impl oc_bots_sdk::api::command::CommandHandler<AgentRuntime> for BotCommandHandl
                 };
                 info!("{}", processing_message);
 
+                // First get the payload from the match
                 let payload = match action.as_str() {
-                    "connect" => serde_json::json!({
-                        "command": "project_connect",
-                        "args": {
-                            "token": params,
-                            "user_id": user_id
+                    "connect" => {
+                        if params.is_empty() {
+                            return Err("Please provide your Asana Personal Access Token. You can get it from https://app.asana.com/0/developer-console".to_string());
                         }
-                    }),
+            
+                        // First call Python API to validate token and get workspace info
+                        serde_json::json!({
+                            "command": "project_connect",
+                            "args": {
+                                "token": params,
+                                "user_id": user_id
+                            }
+                        })
+                    },     
                     "list" => serde_json::json!({
                         "command": "project_list_tasks",
                         "args": {
                             "user_id": user_id
                         }
                     }),
-                    "create" => serde_json::json!({
-                        "command": "project_create_task",
-                        "args": {
-                            "description": params,
-                            "user_id": user_id
+                    "create" => {
+                        if params.is_empty() {
+                            return Err("Please provide a task description".to_string());
                         }
-                    }),
+
+                        // Store Asana task
+                        let task = AsanaTask {
+                            id: params.to_string(), // This will be updated with actual task ID
+                            status: "active".to_string(),
+                            title: params.to_string(),
+                            creator: Principal::from_text(context.command.initiator.to_string()).unwrap(),
+                            platform_id: "pending".to_string(), // This will be updated with actual task ID
+                            description: params.to_string(),
+                            platform: "asana".to_string(),
+                            created_at: env::now(),
+                        };
+
+                        self.backend_canister_agent
+                            .store_asana_task(user_id.clone(), task)
+                            .await?;
+                        
+                        serde_json::json!({
+                            "command": "project_create_task",
+                            "args": {
+                                "description": params,
+                                "user_id": user_id
+                            }
+                        })
+                    },
                     _ => return Err("Unknown project action. Available actions: connect, list, create".to_string()),
                 };
 
+                // Then handle the API call and response
                 let response = self.http_client
                     .post(format!("{}/api/process_command", self.python_api_url))
                     .json(&payload)
@@ -595,18 +922,41 @@ impl oc_bots_sdk::api::command::CommandHandler<AgentRuntime> for BotCommandHandl
                     .map_err(|e| format!("Failed to call Python API: {}", e))?;
 
                 let status = response.status();
-                
+
                 if !status.is_success() {
                     match response.json::<PythonErrorResponse>().await {
-                        Ok(err) => return Err(err.error),
-                        Err(_) => return Err(format!("Python API returned error status: {}", status)),
+                        Ok(err) => return Err(format!("Asana API error: {}", err.error)),
+                        Err(_) => return Err("Failed to connect to Asana. Please check your token and try again.".to_string()),
                     }
                 }
-                
+
                 let bot_response = match response.json::<PythonBotResponse>().await {
                     Ok(resp) => resp,
                     Err(e) => return Err(format!("Failed to parse Python API response: {}", e)),
                 };
+
+                // If this was a connect command and it was successful, store the connection
+                if action == "connect" && status.is_success() {
+                    let workspace_id = bot_response.metadata
+                        .as_ref()
+                        .and_then(|m| m.workspace_id.clone())
+                        .unwrap_or_else(|| "default_workspace".to_string());
+                    
+                    let project_ids = bot_response.metadata
+                        .as_ref()
+                        .and_then(|m| m.project_ids.clone())
+                        .unwrap_or_default();
+
+                    self.backend_canister_agent
+                        .store_asana_connection(
+                            user_id.clone(),
+                            params.to_string(),
+                            workspace_id,
+                            project_ids
+                        )
+                        .await
+                        .map_err(|e| format!("Failed to save Asana connection: {}. Please try again or contact support if the issue persists.", e))?;
+                }
                 
                 let formatted_response = format!("*{}*\n{}", bot_response.bot_name, bot_response.text);
                 
@@ -620,6 +970,10 @@ impl oc_bots_sdk::api::command::CommandHandler<AgentRuntime> for BotCommandHandl
             "help" => {
                 let help_text = "🤖 **Infoundr: The Genius AI Co-Founder and Assistant**\n\n".to_string() +
                     "I'm your AI-powered assistant that can help with various tasks:\n\n" +
+
+                    "**Dashboard Access** 🔐\n" +
+                    "Access your personal dashboard to manage all your interactions and settings:\n" +
+                    "`/dashboard` - Get a secure link to your personal dashboard\n\n" +
                     
                     "**Ask AI Experts** 📚\n" +
                     "You can ask any question to our AI experts, and they will answer you in a friendly and engaging way.\n" +
@@ -690,26 +1044,66 @@ impl oc_bots_sdk::api::command::CommandHandler<AgentRuntime> for BotCommandHandl
                 info!("{}", processing_message);
 
                 let payload = match action.as_str() {
-                    "connect" => json!({
-                        "command": "github_connect",
-                        "args": {
-                            "token": params,
-                            "user_id": user_id
-                        }
-                    }),
+                    "connect" => { 
+                        // Store the github connection 
+                        self.backend_canister_agent
+                        .store_github_connection(
+                            user_id.clone(),
+                            params.to_string(),
+                            None  // No repository selected yet
+                        )
+                        .await?;
+
+                        json!({
+                            "command": "github_connect",
+                            "args": {
+                                "token": params,
+                                "user_id": user_id
+                            }
+                    })},
                     "list" => json!({
                         "command": "github_list_repos",
                         "args": {
                             "user_id": user_id
                         }
                     }),
-                    "select" => json!({
-                        "command": "github_select_repo",
-                        "args": {
-                            "repo_name": params,
-                            "user_id": user_id
+                    "select" => {
+                        // Calling Python API to validate the repo exists and update backend
+                        let response = self.http_client
+                            .post(format!("{}/api/process_command", self.python_api_url))
+                            .json(&json!({
+                                "command": "github_select_repo",
+                                "args": {
+                                    "repo_name": params,
+                                    "user_id": user_id
+                                }
+                            }))
+                            .send()
+                            .await
+                            .map_err(|e| format!("Failed to call Python API: {}", e))?;
+
+                        let status = response.status();
+                        if !status.is_success() {
+                            match response.json::<PythonErrorResponse>().await {
+                                Ok(err) => return Err(err.error),
+                                Err(_) => return Err(format!("Python API returned error status: {}", status)),
+                            }
                         }
-                    }),
+
+                        // If Python API validates the repo successfully, update the backend
+                        self.backend_canister_agent
+                            .update_github_selected_repo(user_id.clone(), params.to_string())
+                            .await?;
+
+                        // Return the payload for the second API call
+                        json!({
+                            "command": "github_select_repo",
+                            "args": {
+                                "repo_name": params,
+                                "user_id": user_id
+                            }
+                        })
+                    },
                     "create" => {
                         let parts: Vec<&str> = params.splitn(2, " -- ").collect();
                         if parts.len() < 2 {
@@ -720,12 +1114,50 @@ impl oc_bots_sdk::api::command::CommandHandler<AgentRuntime> for BotCommandHandl
                                 .execute_then_return_message(|_, _| ());
                             return Ok(oc_bots_sdk::api::command::SuccessResult { message });
                         }
+
+                        // First get the current repo from Python API
+                        let check_repo_response = self.http_client
+                            .post(format!("{}/api/process_command", self.python_api_url))
+                            .json(&json!({
+                                "command": "github_check_repo",
+                                "args": {
+                                    "user_id": user_id
+                                }
+                            }))
+                            .send()
+                            .await
+                            .map_err(|e| format!("Failed to check repository: {}", e))?;
+
+                        let bot_response: PythonBotResponse = check_repo_response.json()
+                            .await
+                            .map_err(|e| format!("Failed to parse repository check response: {}", e))?;
+
+                        let repo = match &bot_response.metadata {
+                            Some(metadata) => metadata.selected_repo.clone(),
+                            None => None,
+                        }.ok_or_else(|| "No repository selected. Please select a repository first using `/github select <owner/repo>`".to_string())?;
+
+                        // Store GitHub issue with updated structure
+                        let issue = GitHubIssue {
+                            id: format!("{}#{}", repo, env::now()),  // Create a unique ID
+                            title: parts[0].trim().to_string(),
+                            body: parts[1].trim().to_string(),
+                            repository: repo.clone(),
+                            created_at: env::now(),
+                            status: IssueStatus::Open,
+                        };
+
+                        self.backend_canister_agent
+                            .store_github_issue(user_id.clone(), issue)
+                            .await?;
+
                         json!({
                             "command": "github_create_issue",
                             "args": {
                                 "title": parts[0].trim(),
                                 "body": parts[1].trim(),
-                                "user_id": user_id
+                                "user_id": user_id,
+                                "repo": repo
                             }
                         })
                     },
@@ -781,13 +1213,35 @@ impl oc_bots_sdk::api::command::CommandHandler<AgentRuntime> for BotCommandHandl
                     .execute_then_return_message(|_, _| ());
                 
                 Ok(oc_bots_sdk::api::command::SuccessResult { message })
-            },
-            _ => return Err("Unknown command".to_string()),
-        }
-    }
+            }, 
+            "dashboard" => {
+                let openchat_id = context.command.initiator.to_string();
+                
+                let token = self.backend_canister_agent
+                    .generate_dashboard_token(openchat_id)
+                    .await?;
+
+                let message = format!(
+                    "🎉 Access your personal dashboard:\nhttp://localhost:5173/bot-login?token={}\n\n\
+                    There you can:\n\
+                    • View all your chat history\n\
+                    • Manage your tasks\n\
+                    • Configure integrations\n\
+                    • And more!", 
+                    token
+                );
+
+                let message = oc_client_factory
+                    .build(context)
+                    .send_text_message(message)
+                    .execute_then_return_message(|_, _| ());
+                
+                            Ok(oc_bots_sdk::api::command::SuccessResult { message })
+                        },
+                        _ => return Err("Unknown command".to_string()),
+                    }
+            }
 }
-
-
 
 // Add this function
 // fn verify_jwt(jwt: &str, public_key: &str) -> bool {
