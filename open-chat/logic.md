@@ -98,18 +98,54 @@ for (bot_name, _info) in bot_info.iter() {
 This is like creating a menu of available experts that users can ask questions to.
 
 ## Flow Diagram
+```mermaid
+sequenceDiagram
+    participant U as User in OpenChat
+    participant B as Our Bot
+    participant P as Python API
+    participant E as Expert Bot
+
+    U->>B: /ask Benny - How to start a startup?
+    Note over B: Validate command format
+    B->>P: Forward question to expert
+    P->>E: Process with expert model
+    Note over E: Generate expert response
+    E->>P: Return expert advice
+    P->>B: Send formatted response
+    B->>U: Display expert's response with formatting
 ```
-User in OpenChat                     Our Bot                        Python API
-     |                                 |                               |
-     | /ask_benny How to...           |                               |
-     |-------------------------------->|                               |
-     |                                 | Forward question              |
-     |                                 |------------------------------>|
-     |                                 |                               |
-     |                                 |      Expert's response        |
-     |                                 |<------------------------------|
-     |     Formatted response          |                               |
-     |<--------------------------------|                               |
+
+## Bot-to-Dashboard Integration Flow
+
+```mermaid
+sequenceDiagram
+    participant U as User
+    participant B as OpenChat Bot
+    participant C as Backend Canister
+    participant W as Web Dashboard
+
+    Note over U,W: First Interaction Flow
+    U->>B: 1. Sends first command
+    B->>C: 2. ensure_openchat_user(openchat_id)
+    C->>C: 3. Store user data
+    C->>B: 4. Confirmation
+    B->>U: 5. Process command
+
+    Note over U,W: Dashboard Access Flow
+    U->>B: 6. /dashboard command
+    B->>C: 7. generate_dashboard_token(openchat_id)
+    C->>C: 8. Create secure token
+    C->>B: 9. Return token
+    B->>U: 10. Dashboard link with token
+
+    Note over U,W: Account Linking Flow
+    U->>W: 11. Click dashboard link
+    W->>C: 12. Verify token
+    U->>W: 13. Login with Internet Identity
+    W->>C: 14. link_accounts(site_principal, openchat_id)
+    C->>C: 15. Link accounts
+    C->>W: 16. Confirmation
+    W->>U: 17. Show dashboard with history
 ```
 
 ## Error Handling

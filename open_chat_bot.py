@@ -42,7 +42,6 @@ def get_token(user_id: str) -> str:
 def handle_project_command(command, args):
     """Handle project management commands"""
     try:
-        # Get user ID from the command context
         user_id = args.get('user_id')
         if not user_id:
             return jsonify({
@@ -91,11 +90,11 @@ def handle_project_command(command, args):
                         "text": "Error: No projects found in workspace. Please create a project first.",
                         "bot_name": "Project Assistant"
                     }), 400
-                
+
                 # Use the first project
                 project = projects[0]
                 project_gids = {project['name']: project['gid']}
-                
+
                 # Store the credentials
                 credential_store.store_asana_credentials(
                     user_id,
@@ -107,8 +106,12 @@ def handle_project_command(command, args):
                 return jsonify({
                     "text": f"✅ Successfully connected your Asana account!\n"
                             f"Using workspace: {workspace['name']}\n"
-                            f"Using project: {project['name']}",
-                    "bot_name": "Project Assistant"
+                            f"Found {len(projects)} projects",
+                    "bot_name": "Project Assistant",
+                    "metadata": {
+                        "workspace_id": workspace_gid,
+                        "project_ids": [(p['gid'], p['name']) for p in projects]
+                    }
                 })
                 
             except asana.rest.ApiException as e:
@@ -117,7 +120,7 @@ def handle_project_command(command, args):
                     "bot_name": "Project Assistant"
                 }), 500
 
-        # For other commands, check if user has connected Asana
+        # For other commands, get the token from storage
         asana_creds = credential_store.get_asana_credentials(user_id)
         if not asana_creds:
             return jsonify({
@@ -132,7 +135,7 @@ def handle_project_command(command, args):
         # Set up integration manager with stored credentials
         integration_manager.setup_user_integrations()
         pm_tool = integration_manager.get_integration("asana")
-        
+
         if command == "project_create_task":
             description = args.get('description', '')
             if not description:
@@ -161,7 +164,10 @@ def handle_project_command(command, args):
             
     except Exception as e:
         logger.error(f"Project management error: {str(e)}", exc_info=True)
-        return jsonify({"error": f"Project management error: {str(e)}"}), 500
+        return jsonify({
+            "text": f"Failed to process command: {str(e)}",
+            "bot_name": "Project Assistant"
+        }), 500
 
 def handle_github_command(command, args):
     """Handle GitHub commands"""
@@ -331,11 +337,17 @@ def handle_github_command(command, args):
             if not selected_repo:
                 return jsonify({
                     "text": "No repository is currently selected. Use `/github select <repository_name>` to select one.",
-                    "bot_name": "GitHub Assistant"
+                    "bot_name": "GitHub Assistant",
+                    "metadata": {
+                        "selected_repo": None
+                    }
                 })
             return jsonify({
                 "text": f"Currently connected repository: {selected_repo}",
-                "bot_name": "GitHub Assistant"
+                "bot_name": "GitHub Assistant",
+                "metadata": {
+                    "selected_repo": selected_repo
+                }
             })
             
     except Exception as e:
