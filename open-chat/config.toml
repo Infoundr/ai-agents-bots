@@ -4,5 +4,4 @@ ic_url = "http://localhost:4943"
 port = 13457
 oc_public_key = "-----BEGIN PUBLIC KEY-----\nMFkwEwYHKoZIzj0CAQYIKoZIzj0DAQcDQgAEtzaTYGxi4cQfdnBYZ1uSp0ddbjck\nf7jg/FTITLMCc5hwrjpA2J+fC/zuGf5eQKGuvDEwHtnhWMmPnrTz91VXuQ==\n-----END PUBLIC KEY-----\n"
 log_level = "INFO"
-python_api_url = "http://localhost:5005" 
-canister_id = "bkyz2-fmaaa-aaaaa-qaaaq-cai"
+python_api_url = "http://154.38.174.112:5005" 
