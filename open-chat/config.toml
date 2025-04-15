@@ -3,5 +3,5 @@ ic_url = "https://icp0.io"
 port = 13457
 oc_public_key = "-----BEGIN PUBLIC KEY-----\nMFkwEwYHKoZIzj0CAQYIKoZIzj0DAQcDQgAEquEHzJr9605Oy796e4z7LKow46DV\nNUnDOQWavi86vEhRAAfdbVh/Lgmxfi44LPb6S0wnCRm9kI/XdK1DYw2Eaw==\n-----END PUBLIC KEY-----\n"
 log_level = "INFO"
-python_api_url = "http://localhost:5005" 
-canister_id = "rdmx6-jaaaa-aaaaa-aaadq-cai"
+python_api_url = "http://154.38.174.112:5005" 
+canister_id = "g7ko2-fyaaa-aaaam-qdlea-cai"

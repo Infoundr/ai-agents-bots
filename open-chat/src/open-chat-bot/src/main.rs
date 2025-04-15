@@ -159,7 +159,7 @@ pub struct AsanaTask {
 
 // backend_canister_agent.rs
 static BACKEND_CANISTER_ID: LazyLock<Principal> = 
-    LazyLock::new(|| Principal::from_text("mdwwn-niaaa-aaaab-qabta-cai").unwrap());
+    LazyLock::new(|| Principal::from_text("g7ko2-fyaaa-aaaam-qdlea-cai").unwrap());
 
 #[derive(Clone)]
 pub struct BackendCanisterAgent {
