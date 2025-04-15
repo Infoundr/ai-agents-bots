@@ -416,6 +416,19 @@ def health_check():
     """Simple health check endpoint"""
     return jsonify({"status": "ok", "bots_available": list(BOTS.keys())})
 
+@app.route('/', methods=['GET'])
+def root():
+    """Root endpoint that redirects to health check"""
+    return jsonify({
+        "status": "ok", 
+        "message": "Bot API server is running", 
+        "endpoints": [
+            "/api/health",
+            "/api/bot_info",
+            "/api/process_command"
+        ]
+    })
+
 if __name__ == '__main__':
     port = 5005
     logger.info(f"Starting bot API server on port {port}")
