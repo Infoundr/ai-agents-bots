@@ -11,7 +11,6 @@ pub struct Config {
     pub python_api_url: String,
     #[serde(with = "LevelDef")]
     pub log_level: Level,
-    pub canister_id: String,
 }
 
 #[derive(Deserialize)]
