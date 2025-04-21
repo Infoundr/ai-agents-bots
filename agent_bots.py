@@ -27,7 +27,20 @@ class Bot:
         self.personality = personality
         self.context = context
         self.example_prompts = example_prompts
-        self.chat_model = ChatOpenAI(temperature=0.7)
+        
+        #  proper configuration
+        try:
+            self.chat_model = ChatOpenAI(
+                model_name="gpt-4",
+                temperature=0.7,
+                api_key=os.getenv('OPENAI_API_KEY'),
+                timeout=30,  
+                max_retries=3  
+            )
+        except Exception as e:
+            raise Exception(f"Failed to initialize ChatOpenAI: {str(e)}")
+        
+        # Initialize remaining attributes
         self.message_history = ChatMessageHistory()
         self.integration_manager = IntegrationManager()
         self.integration_manager.setup_default_integrations()
@@ -285,7 +298,7 @@ BOTS = {
         - I developed a methodology for assessing regulatory risk in new fintech business models that's now widely used.
         - I've seen many startups fail by assuming regulatory frameworks from other regions will work in African markets.
         - My analysis of payment infrastructure gaps led to several successful ventures addressing those specific challenges.
-        """,
+        """, 
         example_prompts=[
             "What regulatory considerations should I be aware of when launching a lending platform?",
             "How do I engage with central banks when introducing a new financial product?",

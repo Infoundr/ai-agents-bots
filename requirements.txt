@@ -10,4 +10,6 @@ streamlit==1.36.0
 jira==3.6.0
 asana==5.0.0
 py-trello==0.20.0
-PyGithub==1.59.1 
+PyGithub==1.59.1
+slack-bolt>=1.23.0
+slack-sdk>=3.35.0
