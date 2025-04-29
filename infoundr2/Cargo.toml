@@ -1,0 +1,27 @@
+[package]
+name = "infoundr2"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+async-trait = "0.1.86"
+axum = "0.8.1"
+candid = "0.10.10"
+dotenv = "0.15.0"
+ic-agent = "0.39.3"
+serde = { version = "1.0.217", features = ["derive"] }
+serde_json = "1.0.138"
+tokio = { version = "1.37.0", features = ["full"] }
+toml = "0.8.20"
+tower-http = { version = "0.6.2", features = ["cors", "trace"] }
+tracing = "0.1.41"
+tracing-subscriber = "0.3.19"
+oc_bots_sdk = { git = "https://github.com/open-chat-labs/open-chat-bots.git", rev = "874641f68a037476f645f41934716f8547289d56" }
+oc_bots_sdk_offchain = { git = "https://github.com/open-chat-labs/open-chat-bots.git", rev = "874641f68a037476f645f41934716f8547289d56" }
+reqwest = { version = "0.11", features = ["json"] }
+
+[profile.release]
+lto = true
+opt-level = "z"
+codegen-units = 1
+debug = false

@@ -8,14 +8,16 @@ use axum::{
 };
 use candid::{CandidType, Encode, Principal};
 use dotenv::dotenv;
-use oc_bots_sdk::{api::command::{CommandHandlerRegistry, CommandResponse}, types::BotCommandContext};
-use oc_bots_sdk::api::definition::{
-    BotCommandDefinition, BotCommandParam, BotCommandParamType, BotDefinition, BotPermissions,
-    MessagePermission, StringParam, BotCommandOptionChoice,
+use oc_bots_sdk::{
+    api::command::{CommandHandlerRegistry, CommandResponse},
+    api::definition::{
+        BotCommandDefinition, BotCommandParam, BotDefinition, BotPermissions,
+        StringParam, BotCommandParamType,
+    },
+    oc_api::client::ClientFactory,
+    types::{BotCommandContext, MessagePermission},
 };
-use oc_bots_sdk::oc_api::client_factory::ClientFactory;
-use oc_bots_sdk_offchain::env;
-use oc_bots_sdk_offchain::AgentRuntime;
+use oc_bots_sdk_offchain::{env, AgentRuntime};
 use reqwest::Client as ReqwestClient;
 use serde::Deserialize;
 use std::net::{Ipv4Addr, SocketAddr};
@@ -27,6 +29,7 @@ use tracing_subscriber::fmt::format::FmtSpan;
 use serde_json::json;
 use ic_agent::Agent;
 use std::sync::LazyLock;
+use async_trait::async_trait;
 
 mod config;
 
@@ -330,97 +333,31 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     // Build agent for OpenChat communication
     let agent = oc_bots_sdk_offchain::build_agent(config.ic_url.clone(), &config.pem_file).await;
-    let backend_canister_agent = BackendCanisterAgent::new(agent.clone());
 
-    // Create client factory
-    let oc_client_factory = Arc::new(ClientFactory::new(AgentRuntime::new(
-        agent.clone(),
-        tokio::runtime::Runtime::new().unwrap(),
-    )));
+    // Create runtime and client factory
+    let runtime = AgentRuntime::new(agent.clone(), tokio::runtime::Runtime::new()?);
+    let client_factory = Arc::new(ClientFactory::new(runtime));
 
-    // Create HTTP client for Python API communication
-    let http_client = ReqwestClient::new();
+    // Create command registry and register handlers
+    let commands = CommandHandlerRegistry::new(client_factory.clone())
+        .register(BotCommandHandler::new(
+            "ask".to_string(),
+            config.python_api_url.clone(),
+            ReqwestClient::new(),
+            BackendCanisterAgent::new(agent.clone()),
+        ));
 
-    // Fetch available bots from Python API
-    let python_api_url = config.python_api_url.clone();
-    let bot_info_response = http_client
-        .get(format!("{}/api/bot_info", python_api_url))
-        .send()
-        .await?;
-    
-    if !bot_info_response.status().is_success() {
-        error!("Failed to fetch bot info from Python API: {}", bot_info_response.status());
-        return Err("Failed to fetch bot info from Python API".into());
-    }
-
-    let bot_info: std::collections::HashMap<String, BotInfo> = bot_info_response.json().await?;
-    info!("Fetched info for {} bots from Python API", bot_info.len());
-
-    // Create command registry
-    let mut commands = CommandHandlerRegistry::new(oc_client_factory);
-    
-    // Register the unified ask command
-    let ask_handler = BotCommandHandler::new(
-        "ask".to_string(),
-        "AI Assistant".to_string(),
-        python_api_url.clone(),
-        http_client.clone(),
-        backend_canister_agent.clone(),
-    );
-    commands = commands.register(ask_handler);
-
-    // Register the dashboard command
-    let dashboard_handler = BotCommandHandler::new(
-        "dashboard".to_string(), 
-        "Dashboard Access".to_string(),
-        python_api_url.clone(),
-        http_client.clone(),
-        backend_canister_agent.clone(),
-    );
-    commands = commands.register(dashboard_handler);
-
-    // Register the unified project command
-    let project_handler = BotCommandHandler::new(
-        "project".to_string(),
-        "Project Assistant".to_string(),
-        python_api_url.clone(),
-        http_client.clone(),
-        backend_canister_agent.clone(),
-    );
-    commands = commands.register(project_handler);
-
-    // Register the help command
-    let help_handler = BotCommandHandler::new(
-        "help".to_string(),
-        "Help Assistant".to_string(),
-        python_api_url.clone(),
-        http_client.clone(),
-        backend_canister_agent.clone(),
-    );
-    commands = commands.register(help_handler);
-
-    // Register unified github commands
-    let github_handler = BotCommandHandler::new(
-        "github".to_string(), 
-        "GitHub Assistant".to_string(),
-        python_api_url.clone(),
-        http_client.clone(),
-        backend_canister_agent.clone(),
-    );
-    commands = commands.register(github_handler);
-
-    // Create app state
     let app_state = AppState {
         oc_public_key: config.oc_public_key,
         commands,
-        python_api_url,
-        http_client,
+        python_api_url: config.python_api_url,
+        http_client: ReqwestClient::new(),
     };
 
     // Create router with endpoints
     let app = Router::new()
         .route("/", get(bot_definition))
-        .route("/bot_definition", get(bot_definition)) 
+        .route("/bot_definition", get(bot_definition))
         .route("/execute", post(execute_command))
         .route("/execute_command", post(execute_command))
         .layer(CorsLayer::permissive())
@@ -457,6 +394,7 @@ fn create_bot_command_definition(bot_name: &str, role: &str) -> BotCommandDefini
         }],
         permissions: BotPermissions::from_message_permission(MessagePermission::Text),
         default_role: None,
+        direct_messages: Some(false),
     }
 }
 
@@ -481,6 +419,7 @@ fn create_project_command_definitions() -> Vec<BotCommandDefinition> {
             }],
             permissions: BotPermissions::from_message_permission(MessagePermission::Text),
             default_role: None,
+            direct_messages: Some(false),
         },
         BotCommandDefinition {
             name: "project_create_task".to_string(),
@@ -500,6 +439,7 @@ fn create_project_command_definitions() -> Vec<BotCommandDefinition> {
             }],
             permissions: BotPermissions::from_message_permission(MessagePermission::Text),
             default_role: None,
+            direct_messages: Some(false),
         },
         BotCommandDefinition {
             name: "project_list_tasks".to_string(),
@@ -508,6 +448,7 @@ fn create_project_command_definitions() -> Vec<BotCommandDefinition> {
             params: vec![],
             permissions: BotPermissions::from_message_permission(MessagePermission::Text),
             default_role: None,
+            direct_messages: Some(false),
         },
     ]
 }
@@ -539,7 +480,6 @@ async fn bot_definition(State(state): State<Arc<AppState>>) -> (StatusCode, Head
 async fn execute_command(
     State(state): State<Arc<AppState>>, 
     headers: HeaderMap,
-    bytes: Bytes,
 ) -> (StatusCode, Bytes) {
     info!("=== Command Execution Start ===");
     info!("Headers: {:?}", headers);
@@ -607,18 +547,22 @@ async fn execute_command(
     }
 }
 
-// Bot command handler
+// Bot command handler structure
 struct BotCommandHandler {
+    definition: BotCommandDefinition,
     command_name: String,
-    bot_name: String,
     python_api_url: String,
     http_client: ReqwestClient,
-    definition: BotCommandDefinition,
     backend_canister_agent: BackendCanisterAgent,
 }
 
 impl BotCommandHandler {
-    fn new(command_name: String, bot_name: String, python_api_url: String, http_client: ReqwestClient, backend_canister_agent: BackendCanisterAgent) -> Self {
+    fn new(
+        command_name: String,
+        python_api_url: String,
+        http_client: ReqwestClient,
+        backend_canister_agent: BackendCanisterAgent,
+    ) -> Self {
         let definition = match command_name.as_str() {
             "ask" => BotCommandDefinition {
                 name: command_name.clone(),
@@ -638,6 +582,7 @@ impl BotCommandHandler {
                 }],
                 permissions: BotPermissions::from_message_permission(MessagePermission::Text),
                 default_role: None,
+                direct_messages: Some(false),
             },
             "project" => BotCommandDefinition {
                 name: command_name.clone(),
@@ -663,6 +608,7 @@ impl BotCommandHandler {
                 }],
                 permissions: BotPermissions::from_message_permission(MessagePermission::Text),
                 default_role: None,
+                direct_messages: Some(false),
             },
             "help" => BotCommandDefinition {
                 name: command_name.clone(),
@@ -671,6 +617,7 @@ impl BotCommandHandler {
                 params: vec![],
                 permissions: BotPermissions::from_message_permission(MessagePermission::Text),
                 default_role: None,
+                direct_messages: Some(false),
             },
             "github" => BotCommandDefinition {
                 name: command_name.clone(), 
@@ -697,6 +644,7 @@ impl BotCommandHandler {
                 }],
                 permissions: BotPermissions::from_message_permission(MessagePermission::Text),
                 default_role: None,
+                direct_messages: Some(false),
             },
             "dashboard" => BotCommandDefinition {
                 name: "dashboard".to_string(),
@@ -705,6 +653,7 @@ impl BotCommandHandler {
                 params: vec![],
                 permissions: BotPermissions::from_message_permission(MessagePermission::Text),
                 default_role: None,
+                direct_messages: Some(false),
             }, 
             _ => BotCommandDefinition {
                 name: command_name.clone(),
@@ -713,12 +662,12 @@ impl BotCommandHandler {
                 params: vec![],
                 permissions: BotPermissions::from_message_permission(MessagePermission::Text),
                 default_role: None,
+                direct_messages: Some(false),
             },
         };
 
         Self {
             command_name,
-            bot_name,
             python_api_url,
             http_client,
             definition,
@@ -733,7 +682,7 @@ impl BotCommandHandler {
 }
 
 // Bot command handler implementation
-#[async_trait::async_trait]
+#[async_trait]
 impl oc_bots_sdk::api::command::CommandHandler<AgentRuntime> for BotCommandHandler {
     fn definition(&self) -> &BotCommandDefinition {
         &self.definition
@@ -741,9 +690,9 @@ impl oc_bots_sdk::api::command::CommandHandler<AgentRuntime> for BotCommandHandl
 
     async fn execute(
         &self,
-        context: oc_bots_sdk::types::BotCommandContext,
-        oc_client_factory: &ClientFactory<AgentRuntime>,
+        client: oc_bots_sdk::oc_api::client::Client<AgentRuntime, BotCommandContext>,
     ) -> Result<oc_bots_sdk::api::command::SuccessResult, String> {
+        let context = client.context();
         let user_id = context.command.initiator.to_string();
         println!("User ID is: {}", user_id);
         let command_initiator = context.command.initiator;
@@ -760,8 +709,7 @@ impl oc_bots_sdk::api::command::CommandHandler<AgentRuntime> for BotCommandHandl
                 // Parse the expert name and question
                 let parts: Vec<&str> = message.splitn(2, '-').collect();
                 if parts.len() != 2 {
-                    let help_message = oc_client_factory
-                        .build(context)
+                    let help_message = client
                         .send_text_message(
                             "Please use the format: [Expert Name] - [Your Question]\n\n\
                             Available experts:\n\
@@ -781,8 +729,7 @@ impl oc_bots_sdk::api::command::CommandHandler<AgentRuntime> for BotCommandHandl
                 // Validate expert name
                 let valid_experts = vec!["benny", "felix", "dean"];
                 if !valid_experts.contains(&expert.as_str()) {
-                    let error_message = oc_client_factory
-                        .build(context)
+                    let error_message = client
                         .send_text_message(
                             format!("Unknown expert '{}'. Available experts:\n\
                             • Benny - Backend & Business Expert\n\
@@ -840,8 +787,7 @@ impl oc_bots_sdk::api::command::CommandHandler<AgentRuntime> for BotCommandHandl
                 
                 let formatted_response = format!("*{}*\n{}", bot_response.bot_name, bot_response.text);
                 
-                let message = oc_client_factory
-                    .build(context)
+                let message = client
                     .send_text_message(formatted_response)
                     .execute_then_return_message(|_, _| ());
                 
@@ -968,8 +914,7 @@ impl oc_bots_sdk::api::command::CommandHandler<AgentRuntime> for BotCommandHandl
                 
                 let formatted_response = format!("*{}*\n{}", bot_response.bot_name, bot_response.text);
                 
-                let message = oc_client_factory
-                    .build(context)
+                let message = client
                     .send_text_message(formatted_response)
                     .execute_then_return_message(|_, _| ());
                 
@@ -1020,8 +965,7 @@ impl oc_bots_sdk::api::command::CommandHandler<AgentRuntime> for BotCommandHandl
                     "For more details on any command, use it with --help\n" +
                     "Example: /github --help";
 
-                let message = oc_client_factory
-                    .build(context)
+                let message = client
                     .send_text_message(help_text)
                     .execute_then_return_message(|_, _| ());
 
@@ -1119,8 +1063,7 @@ impl oc_bots_sdk::api::command::CommandHandler<AgentRuntime> for BotCommandHandl
                         let parts: Vec<&str> = params.splitn(2, " -- ").collect();
                         if parts.len() < 2 {
                             let error_message = "Please provide the issue title and description separated by ' -- ': create Issue title -- Description";
-                            let message = oc_client_factory
-                                .build(context)
+                            let message = client
                                 .send_text_message(error_message.to_string())
                                 .execute_then_return_message(|_, _| ());
                             return Ok(oc_bots_sdk::api::command::SuccessResult { message });
@@ -1218,8 +1161,7 @@ impl oc_bots_sdk::api::command::CommandHandler<AgentRuntime> for BotCommandHandl
                 
                 let formatted_response = format!("*{}*\n{}", bot_response.bot_name, bot_response.text);
                 
-                let message = oc_client_factory
-                    .build(context)
+                let message = client
                     .send_text_message(formatted_response)
                     .execute_then_return_message(|_, _| ());
                 
@@ -1233,7 +1175,7 @@ impl oc_bots_sdk::api::command::CommandHandler<AgentRuntime> for BotCommandHandl
                     .await?;
 
                 let message = format!(
-                    "🎉 Access your personal dashboard:\nhttps://infoundr.com/bot-login?token={}\n\n\
+                    "🎉 Access your personal dashboard:\nhttps://ocpcu-jaaaa-aaaab-qab6q-cai.icp0.io/bot-login?token={}\n\n\
                     There you can:\n\
                     • View all your chat history\n\
                     • Manage your tasks\n\
@@ -1242,21 +1184,13 @@ impl oc_bots_sdk::api::command::CommandHandler<AgentRuntime> for BotCommandHandl
                     token
                 );
 
-                let message = oc_client_factory
-                    .build(context)
+                let message = client
                     .send_text_message(message)
                     .execute_then_return_message(|_, _| ());
                 
-                            Ok(oc_bots_sdk::api::command::SuccessResult { message })
-                        },
-                        _ => return Err("Unknown command".to_string()),
-                    }
-            }
+                Ok(oc_bots_sdk::api::command::SuccessResult { message })
+            },
+            _ => return Err("Unknown command".to_string()),
+        }
+    }
 }
-
-// Add this function
-// fn verify_jwt(jwt: &str, public_key: &str) -> bool {
-//     info!("Verifying JWT: {}", jwt);
-//     info!("Using public key: {}", public_key);
-//     // ... rest of verification
-// }

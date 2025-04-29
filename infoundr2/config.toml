@@ -1,4 +1,4 @@
-pem_file = "./infoundr_identity.pem"
+pem_file = "./identity.pem"
 ic_url = "https://icp0.io"
 port = 13457
 oc_public_key = """
