@@ -1233,7 +1233,7 @@ impl oc_bots_sdk::api::command::CommandHandler<AgentRuntime> for BotCommandHandl
                     .await?;
 
                 let message = format!(
-                    "🎉 Access your personal dashboard:\nhttps://ocpcu-jaaaa-aaaab-qab6q-cai.icp0.io/bot-login?token={}\n\n\
+                    "🎉 Access your personal dashboard:\nhttps://infoundr.com/bot-login?token={}\n\n\
                     There you can:\n\
                     • View all your chat history\n\
                     • Manage your tasks\n\
