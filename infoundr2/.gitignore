@@ -1,0 +1,24 @@
+# Rust specific
+/target/
+**/*.rs.bk
+Cargo.lock
+node_modules/
+
+# IDE specific
+.idea/
+.vscode/
+*.swp
+*.swo 
+
+# Environment variables
+.env
+.env.local
+
+# Debug files
+*.pdb
+
+.specstory/
+.dfx/
+.cargo/
+.DS_Store
+.cursor/
