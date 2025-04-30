@@ -163,10 +163,18 @@ You will get the loading element again. And once the issues are listed succesful
 
 ![github command response](./images/github-list-issues-2.png)
 
-And with that you've successfully tested out the ``Infoundr OpenChat Bot``.  
+And with that you've successfully tested out the ``Infoundr OpenChat Bot``.
 
+### Section D: Checking history of your prompts and requests: 
+You can easliy check your previous commands and requests by going to the infoundr dashboard directly from open chat 
 
+Step 1: Type in the ``/dashboard`` command - and an auth token for logging into your dashboard will be generated
+![dashboard token](./images/dashboard-token.png)
 
+Step 2: Click on the link, and you'll be redirected to the site - where your Open Chat ID will be matched to your authentication details 
+![redirect](./images/redirect.png)
 
+Step 4: Once you've logged in, you'll be redirected to the dashboard section of the site, where you'll see your history of the prompts and requests you've made. 
+![dashboard site](./images/dashboard-site.png)
 
 
