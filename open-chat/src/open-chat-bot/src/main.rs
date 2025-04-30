@@ -159,7 +159,8 @@ pub struct AsanaTask {
 
 // backend_canister_agent.rs
 static BACKEND_CANISTER_ID: LazyLock<Principal> = 
-    LazyLock::new(|| Principal::from_text("g7ko2-fyaaa-aaaam-qdlea-cai").unwrap());
+    // LazyLock::new(|| Principal::from_text("g7ko2-fyaaa-aaaam-qdlea-cai").unwrap());  // Mainnet Canister ID
+    LazyLock::new(|| Principal::from_text("5hus6-nyaaa-aaaab-qacya-cai").unwrap());  // Devnet Canister ID
 
 #[derive(Clone)]
 pub struct BackendCanisterAgent {
@@ -852,7 +853,20 @@ impl oc_bots_sdk::api::command::CommandHandler<AgentRuntime> for BotCommandHandl
                 let parts: Vec<&str> = command_text.splitn(2, ' ').collect();
                 
                 if parts.is_empty() {
-                    return Err("Please specify a project action".to_string());
+                    let help_message = oc_client_factory
+                        .build(context)
+                        .send_text_message(
+                            "❌ **Wrong use of command**\n\n\
+                            🤖 **Project Management Commands** 📋\n\n\
+                            Available actions:\n\
+                            • `/project connect [token]` - Connect your Asana account\n\
+                            • `/project list` - View your tasks\n\
+                            • `/project create [description]` - Create a new task\n\n\
+                            Example: `/project create Build landing page`".to_string()
+                        )
+                        .execute_then_return_message(|_, _| ());
+
+                    return Ok(oc_bots_sdk::api::command::SuccessResult { message: help_message });
                 }
 
                 let action = parts[0].trim().to_lowercase();
@@ -863,7 +877,22 @@ impl oc_bots_sdk::api::command::CommandHandler<AgentRuntime> for BotCommandHandl
                     "connect" => "Connecting to Asana...",
                     "list" => "Fetching your tasks...",
                     "create" => "Creating new task...",
-                    _ => "Processing project command...",
+                    _ => {
+                        let help_message = oc_client_factory
+                            .build(context)
+                            .send_text_message(
+                                "❌ **Wrong use of command**\n\n\
+                                🤖 **Project Management Commands** 📋\n\n\
+                                Available actions:\n\
+                                • `/project connect [token]` - Connect your Asana account\n\
+                                • `/project list` - View your tasks\n\
+                                • `/project create [description]` - Create a new task\n\n\
+                                Example: `/project create Build landing page`".to_string()
+                            )
+                            .execute_then_return_message(|_, _| ());
+
+                        return Ok(oc_bots_sdk::api::command::SuccessResult { message: help_message });
+                    }
                 };
                 info!("{}", processing_message);
 
@@ -918,7 +947,7 @@ impl oc_bots_sdk::api::command::CommandHandler<AgentRuntime> for BotCommandHandl
                             }
                         })
                     },
-                    _ => return Err("Unknown project action. Available actions: connect, list, create".to_string()),
+                    _ => unreachable!() // We handled unknown commands above
                 };
 
                 // Then handle the API call and response
@@ -1032,7 +1061,24 @@ impl oc_bots_sdk::api::command::CommandHandler<AgentRuntime> for BotCommandHandl
                 let parts: Vec<&str> = command_text.splitn(2, ' ').collect();
                 
                 if parts.is_empty() {
-                    return Err("Please specify a GitHub action".to_string());
+                    let help_message = oc_client_factory
+                        .build(context)
+                        .send_text_message(
+                            "❌ **Wrong use of command**\n\n\
+                            🤖 **GitHub Integration Commands** 💻\n\n\
+                            Available actions:\n\
+                            • `/github connect [token]` - Connect your GitHub account\n\
+                            • `/github list` - List your repositories\n\
+                            • `/github select [owner/repo]` - Select a repository\n\
+                            • `/github create [title] -- [description]` - Create a new issue\n\
+                            • `/github list_issues [open/closed]` - List repository issues\n\
+                            • `/github list_prs [open/closed]` - List pull requests\n\
+                            • `/github check_repo` - Check connected repository\n\n\
+                            Example: `/github create Fix login bug -- The login button is not working`".to_string()
+                        )
+                        .execute_then_return_message(|_, _| ());
+
+                    return Ok(oc_bots_sdk::api::command::SuccessResult { message: help_message });
                 }
 
                 let action = parts[0].trim().to_lowercase();
@@ -1047,7 +1093,26 @@ impl oc_bots_sdk::api::command::CommandHandler<AgentRuntime> for BotCommandHandl
                     "list_issues" => "Fetching issues...",
                     "list_prs" => "Fetching pull requests...",
                     "check_repo" => "Checking connected repository...",
-                    _ => "Processing GitHub command...",
+                    _ => {
+                        let help_message = oc_client_factory
+                            .build(context)
+                            .send_text_message(
+                                "❌ **Wrong use of command**\n\n\
+                                🤖 **GitHub Integration Commands** 💻\n\n\
+                                Available actions:\n\
+                                • `/github connect [token]` - Connect your GitHub account\n\
+                                • `/github list` - List your repositories\n\
+                                • `/github select [owner/repo]` - Select a repository\n\
+                                • `/github create [title] -- [description]` - Create a new issue\n\
+                                • `/github list_issues [open/closed]` - List repository issues\n\
+                                • `/github list_prs [open/closed]` - List pull requests\n\
+                                • `/github check_repo` - Check connected repository\n\n\
+                                Example: `/github create Fix login bug -- The login button is not working`".to_string()
+                            )
+                            .execute_then_return_message(|_, _| ());
+
+                        return Ok(oc_bots_sdk::api::command::SuccessResult { message: help_message });
+                    }
                 };
                 info!("{}", processing_message);
 
@@ -1068,7 +1133,8 @@ impl oc_bots_sdk::api::command::CommandHandler<AgentRuntime> for BotCommandHandl
                                 "token": params,
                                 "user_id": user_id
                             }
-                    })},
+                        })
+                    },
                     "list" => json!({
                         "command": "github_list_repos",
                         "args": {
@@ -1233,7 +1299,8 @@ impl oc_bots_sdk::api::command::CommandHandler<AgentRuntime> for BotCommandHandl
                     .await?;
 
                 let message = format!(
-                    "🎉 Access your personal dashboard:\nhttps://infoundr.com/bot-login?token={}\n\n\
+                    // "🎉 Access your personal dashboard:\nhttps://infoundr.com/bot-login?token={}\n\n\
+                    "🎉 Access your personal dashboard:\nhttps://4k2wq-cqaaa-aaaab-qac7q-cai.icp0.io/bot-login?token={}\n\n\
                     There you can:\n\
                     • View all your chat history\n\
                     • Manage your tasks\n\
@@ -1247,11 +1314,47 @@ impl oc_bots_sdk::api::command::CommandHandler<AgentRuntime> for BotCommandHandl
                     .send_text_message(message)
                     .execute_then_return_message(|_, _| ());
                 
-                            Ok(oc_bots_sdk::api::command::SuccessResult { message })
-                        },
-                        _ => return Err("Unknown command".to_string()),
-                    }
+                Ok(oc_bots_sdk::api::command::SuccessResult { message })
+            },
+            _ => {
+                let help_message = oc_client_factory
+                    .build(context)
+                    .send_text_message(
+                        "❌ **Wrong use of command**\n\n\
+                        🤖 **Available Commands**\n\n\
+                        **Ask AI Experts** 📚\n\
+                        `/ask [Expert Name] - [Your Question]`\n\
+                        Available experts:\n\
+                        • Benny - Backend & Business Expert\n\
+                        • Felix - Frontend Expert\n\
+                        • Dean - DevOps Expert\n\n\
+                        **Project Management** 📋\n\
+                        `/project [action] [parameters]`\n\
+                        Available actions:\n\
+                        • connect [token] - Connect your Asana account\n\
+                        • list - View your tasks\n\
+                        • create [description] - Create a new task\n\n\
+                        **GitHub Integration** 💻\n\
+                        `/github [action] [parameters]`\n\
+                        Available actions:\n\
+                        • connect [token] - Connect GitHub account\n\
+                        • list - List repositories\n\
+                        • select [owner/repo] - Select repository\n\
+                        • create [title] -- [description] - Create issue\n\
+                        • list_issues [open/closed] - List issues\n\
+                        • list_prs [open/closed] - List pull requests\n\
+                        • check_repo - Check connected repository\n\n\
+                        **Dashboard Access** 🔐\n\
+                        `/dashboard` - Get access to your personal dashboard\n\n\
+                        **Help** ❓\n\
+                        `/help` - Get detailed help and command information".to_string()
+                    )
+                    .execute_then_return_message(|_, _| ());
+
+                Ok(oc_bots_sdk::api::command::SuccessResult { message: help_message })
             }
+        }
+    }
 }
 
 // Add this function
