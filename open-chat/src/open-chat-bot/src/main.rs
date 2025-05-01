@@ -159,8 +159,8 @@ pub struct AsanaTask {
 
 // backend_canister_agent.rs
 static BACKEND_CANISTER_ID: LazyLock<Principal> = 
-    // LazyLock::new(|| Principal::from_text("g7ko2-fyaaa-aaaam-qdlea-cai").unwrap());  // Mainnet Canister ID
-    LazyLock::new(|| Principal::from_text("omnp4-sqaaa-aaaab-qab7q-cai").unwrap());  // Devnet Canister ID
+    LazyLock::new(|| Principal::from_text("g7ko2-fyaaa-aaaam-qdlea-cai").unwrap());  // Mainnet Canister ID
+    // LazyLock::new(|| Principal::from_text("omnp4-sqaaa-aaaab-qab7q-cai").unwrap());  // Devnet Canister ID
 
 #[derive(Clone)]
 pub struct BackendCanisterAgent {
@@ -1388,8 +1388,7 @@ impl oc_bots_sdk::api::command::CommandHandler<AgentRuntime> for BotCommandHandl
                     .await?;
 
                 let message = format!(
-                    // "🎉 Access your personal dashboard:\nhttps://infoundr.com/bot-login?token={}\n\n\
-                    "🎉 Access your personal dashboard:\nhttps://zrakb-eaaaa-aaaab-qacaq-cai.icp0.io/bot-login?token={}\n\n\
+                    "🎉 Access your personal dashboard:\nhttps://infoundr.com/bot-login?token={}\n\n\
                     There you can:\n\
                     • View all your chat history\n\
                     • Manage your tasks\n\
