@@ -160,7 +160,7 @@ pub struct AsanaTask {
 // backend_canister_agent.rs
 static BACKEND_CANISTER_ID: LazyLock<Principal> = 
     // LazyLock::new(|| Principal::from_text("g7ko2-fyaaa-aaaam-qdlea-cai").unwrap());  // Mainnet Canister ID
-    LazyLock::new(|| Principal::from_text("5hus6-nyaaa-aaaab-qacya-cai").unwrap());  // Devnet Canister ID
+    LazyLock::new(|| Principal::from_text("omnp4-sqaaa-aaaab-qab7q-cai").unwrap());  // Devnet Canister ID
 
 #[derive(Clone)]
 pub struct BackendCanisterAgent {
@@ -178,13 +178,25 @@ impl BackendCanisterAgent {
         let args = Encode!(&identifier, &message)
             .map_err(|e| format!("Failed to encode arguments: {}", e))?;
     
+        // Check message size before sending to canister
+        if args.len() > 2048 {
+            return Err(format!("Message too large. Maximum size is 2048 bytes, found {} bytes. Please try a shorter message.", args.len()));
+        }
+
         self.agent
             .update(&BACKEND_CANISTER_ID, "store_chat_message")
             .with_arg(&*args)
             .call_and_wait()
             .await
             .map(|_| ()) // Convert Result<Vec<u8>, String> to Result<(), String>
-            .map_err(|e| format!("Failed to store chat message: {}", e))
+            .map_err(|e| {
+                // Check for specific IC size limit error
+                if e.to_string().contains("Value is too large. Expected <= 2048 bytes") {
+                    "Message too large. Maximum size is 2048 bytes. Please try a shorter message.".to_string()
+                } else {
+                    format!("Failed to store chat message: {}", e)
+                }
+            })
     }
 
     // Ensure user is registered
@@ -814,8 +826,28 @@ impl oc_bots_sdk::api::command::CommandHandler<AgentRuntime> for BotCommandHandl
                 
                 if !status.is_success() {
                     match response.json::<PythonErrorResponse>().await {
-                        Ok(err) => return Err(err.error),
-                        Err(_) => return Err(format!("Python API returned error status: {}", status)),
+                        Ok(err) => {
+                            let error_message = oc_client_factory
+                                .build(context)
+                                .send_text_message(
+                                    "❌ **An error occurred**\n\n\
+                                    Please try running the command again. If the problem persists, contact support.".to_string()
+                                )
+                                .execute_then_return_message(|_, _| ());
+
+                            return Ok(oc_bots_sdk::api::command::SuccessResult { message: error_message });
+                        },
+                        Err(_) => {
+                            let error_message = oc_client_factory
+                                .build(context)
+                                .send_text_message(
+                                    "❌ **An error occurred**\n\n\
+                                    Please try running the command again. If the problem persists, contact support.".to_string()
+                                )
+                                .execute_then_return_message(|_, _| ());
+
+                            return Ok(oc_bots_sdk::api::command::SuccessResult { message: error_message });
+                        }
                     }
                 }
                 
@@ -834,10 +866,27 @@ impl oc_bots_sdk::api::command::CommandHandler<AgentRuntime> for BotCommandHandl
                     bot_name: Some(expert.clone()),
                 };
 
-                // Store in backend canister
-                self.backend_canister_agent
+                // Store in backend canister with size limit handling
+                match self.backend_canister_agent
                     .store_chat_message(user_id.clone(), chat_message)
-                    .await?;
+                    .await
+                {
+                    Ok(_) => (),
+                    Err(e) => {
+                        if e.contains("Message too large") {
+                            let error_message = oc_client_factory
+                                .build(context)
+                                .send_text_message(
+                                    "⚠️ **Message too large**\n\n\
+                                    The response was too large to store. Please try a shorter message or contact support.".to_string()
+                                )
+                                .execute_then_return_message(|_, _| ());
+                            return Ok(oc_bots_sdk::api::command::SuccessResult { message: error_message });
+                        } else {
+                            return Err(e);
+                        }
+                    }
+                }
                 
                 let formatted_response = format!("*{}*\n{}", bot_response.bot_name, bot_response.text);
                 
@@ -962,8 +1011,28 @@ impl oc_bots_sdk::api::command::CommandHandler<AgentRuntime> for BotCommandHandl
 
                 if !status.is_success() {
                     match response.json::<PythonErrorResponse>().await {
-                        Ok(err) => return Err(format!("Asana API error: {}", err.error)),
-                        Err(_) => return Err("Failed to connect to Asana. Please check your token and try again.".to_string()),
+                        Ok(err) => {
+                            let error_message = oc_client_factory
+                                .build(context)
+                                .send_text_message(
+                                    "❌ **An error occurred**\n\n\
+                                    Please try running the command again. If the problem persists, contact support.".to_string()
+                                )
+                                .execute_then_return_message(|_, _| ());
+
+                            return Ok(oc_bots_sdk::api::command::SuccessResult { message: error_message });
+                        },
+                        Err(_) => {
+                            let error_message = oc_client_factory
+                                .build(context)
+                                .send_text_message(
+                                    "❌ **An error occurred**\n\n\
+                                    Please try running the command again. If the problem persists, contact support.".to_string()
+                                )
+                                .execute_then_return_message(|_, _| ());
+
+                            return Ok(oc_bots_sdk::api::command::SuccessResult { message: error_message });
+                        }
                     }
                 }
 
@@ -1272,8 +1341,28 @@ impl oc_bots_sdk::api::command::CommandHandler<AgentRuntime> for BotCommandHandl
                 
                 if !status.is_success() {
                     match response.json::<PythonErrorResponse>().await {
-                        Ok(err) => return Err(err.error),
-                        Err(_) => return Err(format!("Python API returned error status: {}", status)),
+                        Ok(err) => {
+                            let error_message = oc_client_factory
+                                .build(context)
+                                .send_text_message(
+                                    "❌ **An error occurred**\n\n\
+                                    Please try running the command again. If the problem persists, contact support.".to_string()
+                                )
+                                .execute_then_return_message(|_, _| ());
+
+                            return Ok(oc_bots_sdk::api::command::SuccessResult { message: error_message });
+                        },
+                        Err(_) => {
+                            let error_message = oc_client_factory
+                                .build(context)
+                                .send_text_message(
+                                    "❌ **An error occurred**\n\n\
+                                    Please try running the command again. If the problem persists, contact support.".to_string()
+                                )
+                                .execute_then_return_message(|_, _| ());
+
+                            return Ok(oc_bots_sdk::api::command::SuccessResult { message: error_message });
+                        }
                     }
                 }
                 
@@ -1300,7 +1389,7 @@ impl oc_bots_sdk::api::command::CommandHandler<AgentRuntime> for BotCommandHandl
 
                 let message = format!(
                     // "🎉 Access your personal dashboard:\nhttps://infoundr.com/bot-login?token={}\n\n\
-                    "🎉 Access your personal dashboard:\nhttps://4k2wq-cqaaa-aaaab-qac7q-cai.icp0.io/bot-login?token={}\n\n\
+                    "🎉 Access your personal dashboard:\nhttps://zrakb-eaaaa-aaaab-qacaq-cai.icp0.io/bot-login?token={}\n\n\
                     There you can:\n\
                     • View all your chat history\n\
                     • Manage your tasks\n\
