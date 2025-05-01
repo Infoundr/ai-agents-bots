@@ -10,6 +10,8 @@ import sys
 from collections import defaultdict
 import re
 from typing import Dict, Optional
+import requests
+from urllib.parse import quote
 
 # logging to show detailed information
 logging.basicConfig(
@@ -34,6 +36,31 @@ conversation_histories: Dict[str, Dict] = defaultdict(lambda: {
     "thread_ts": None,
     "history": []
 })
+
+
+OPENCHAT_API_URL = "http://154.38.174.112:5005"
+
+def call_openchat_api(command: str, args: dict) -> dict:
+    """Make a request to the OpenChat API"""
+    try:
+        response = requests.post(
+            f"{OPENCHAT_API_URL}/api/process_command",
+            json={"command": command, "args": args}
+        )
+        response.raise_for_status()
+        return response.json()
+    except requests.RequestException as e:
+        logger.error(f"Error calling OpenChat API: {e}")
+        raise Exception(f"Failed to process command: {e}")
+
+def format_openchat_response(response: dict) -> str:
+    """Format the OpenChat API response for Slack"""
+    if "error" in response:
+        return f"❌ Error: {response['error']}"
+    
+    text = response.get("text", "")
+    bot_name = response.get("bot_name", "Assistant")
+    return f"*{bot_name}:*\n{text}"
 
 @app.message("")
 def handle_messages(message, say, logger):
@@ -186,6 +213,96 @@ def list_bots(ack, respond):
     ack()
     bot_list = "\n".join([f"• *{name}*: {bot.role}" for name, bot in BOTS.items()])
     respond(f"Available expert bots:\n{bot_list}\n\nTo ask a bot, use: `Ask [BotName]: your question`")
+
+@app.command("/project")
+def handle_project_command(ack, body, respond):
+    ack()
+    try:
+        user_id = body["user_id"]
+        text = body.get("text", "").strip()
+        
+        if not text:
+            respond("Usage: `/project connect TOKEN` or `/project list` or `/project create TASK_DESCRIPTION`")
+            return
+            
+        parts = text.split(maxsplit=1)
+        action = parts[0].lower()
+        params = parts[1] if len(parts) > 1 else ""
+        
+        command = f"project_{action}"
+        args = {
+            "user_id": user_id,
+            "token": params if action == "connect" else None,
+            "description": params if action == "create" else None
+        }
+        
+        response = call_openchat_api(command, args)
+        respond(format_openchat_response(response))
+        
+    except Exception as e:
+        logger.error(f"Error handling project command: {e}")
+        respond(f"❌ Error: {str(e)}")
+
+@app.command("/github")
+def handle_github_command(ack, body, respond):
+    ack()
+    try:
+        user_id = body["user_id"]
+        text = body.get("text", "").strip()
+        
+        if not text:
+            respond("Usage: `/github connect TOKEN` or `/github list` or `/github select REPO` or `/github create \"TITLE\" \"DESCRIPTION\"`")
+            return
+            
+        parts = text.split(maxsplit=1)
+        action = parts[0].lower()
+        params = parts[1] if len(parts) > 1 else ""
+        
+        command = f"github_{action}"
+        args = {
+            "user_id": user_id,
+            "token": params if action == "connect" else None,
+            "repo_name": params if action == "select" else None
+        }
+        
+        # Special handling for issue creation
+        if action == "create":
+            try:
+                title, body = [p.strip('"') for p in params.split('" "')]
+                args["title"] = title
+                args["body"] = body
+            except ValueError:
+                respond("For creating issues, use: `/github create \"Issue Title\" \"Issue Description\"`")
+                return
+        
+        response = call_openchat_api(command, args)
+        respond(format_openchat_response(response))
+        
+    except Exception as e:
+        logger.error(f"Error handling github command: {e}")
+        respond(f"❌ Error: {str(e)}")
+
+@app.command("/help")
+def help_command(ack, respond):
+    ack()
+    help_text = (
+        "*Available Commands:*\n\n"
+        "*Expert Assistance:*\n"
+        "• `Ask [ExpertName]: question` - Ask a question to any of our experts\n"
+        "• `/experts` - List all available experts\n\n"
+        "*Project Management:*\n"
+        "• `/project connect TOKEN` - Connect your Asana account\n"
+        "• `/project list` - List your tasks\n"
+        "• `/project create DESCRIPTION` - Create a new task\n\n"
+        "*GitHub Integration:*\n"
+        "• `/github connect TOKEN` - Connect your GitHub account\n"
+        "• `/github list` - List your repositories\n"
+        "• `/github select REPO` - Select a repository\n"
+        "• `/github create \"TITLE\" \"DESCRIPTION\"` - Create an issue\n"
+        "• `/github list_issues` - List repository issues\n"
+        "• `/github list_prs` - List pull requests"
+    )
+    respond(help_text)
 
 @app.event("hello")
 def handle_hello(say):
