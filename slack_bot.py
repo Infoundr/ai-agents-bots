@@ -417,6 +417,60 @@ def oauth_redirect():
         
     return "Installation failed! Missing authorization code.", 400
 
+@flask_app.route("/", methods=["GET"])
+def index():
+    """
+    Handler for the root URL path.
+    Redirects to the installation page or provides basic info about the bot.
+    """
+    return """
+    <html>
+        <head>
+            <title>Infoundr Bot</title>
+            <style>
+                body { 
+                    font-family: -apple-system, BlinkMacSystemFont, sans-serif;
+                    display: flex;
+                    justify-content: center;
+                    align-items: center;
+                    height: 100vh;
+                    margin: 0;
+                    background-color: #f8f9fa;
+                }
+                .container {
+                    text-align: center;
+                    padding: 2rem;
+                    background: white;
+                    border-radius: 8px;
+                    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+                    max-width: 600px;
+                }
+                h1 {
+                    color: #1d1c1d;
+                    margin-bottom: 1.5rem;
+                }
+                .button {
+                    display: inline-block;
+                    background-color: #4A154B;
+                    color: white;
+                    padding: 12px 24px;
+                    border-radius: 4px;
+                    text-decoration: none;
+                    margin-top: 1rem;
+                    font-weight: bold;
+                }
+            </style>
+        </head>
+        <body>
+            <div class="container">
+                <h1>Welcome to Infoundr Bot</h1>
+                <p>An AI-powered assistant for entrepreneurs and startups.</p>
+                <a href="/slack/install" class="button">Install on Slack</a>
+            </div>
+        </body>
+    </html>
+    """
+
 @flask_app.route("/slack/events", methods=["POST"])
 def slack_events():
     # Handle URL verification challenge
