@@ -59,7 +59,7 @@ oauth_settings = OAuthSettings(
         "mpim:history"
     ],
     installation_store=installation_store,
-    redirect_uri="https://b517-197-139-54-10.ngrok-free.app/slack/oauth_redirect"
+    redirect_uri="http://154.38.174.112:3000/slack/oauth_redirect"
 )
 
 # Initialize WebClient and App
@@ -492,7 +492,7 @@ def serve_logo():
     return '', 404  
 
 if __name__ == "__main__":
-    ngrok_url = "https://b517-197-139-54-10.ngrok-free.app"
+    ngrok_url = "http://154.38.174.112:3000"
     logger.info(f"Starting Slack bot server on port 3000...")
     logger.info(f"Public URL: {ngrok_url}")
     
