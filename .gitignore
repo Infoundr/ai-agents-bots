@@ -5,3 +5,5 @@ __pycache__
 
 # Slack installation data
 slack_installations/
+# SpecStory explanation file
+.specstory/.what-is-this.md
