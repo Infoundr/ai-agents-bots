@@ -382,10 +382,10 @@ def oauth_redirect():
                 enterprise_id=enterprise_id,
                 team_id=oauth_response["team"]["id"],
                 team_name=oauth_response["team"].get("name", ""),
-                user_id=oauth_response["authed_user"]["id"],
+                user_id=oauth_response["bot_user_id"],  # Use bot_user_id instead of authed_user id
                 bot_token=oauth_response["access_token"],
                 bot_id=oauth_response["bot_user_id"],
-                bot_user_id=oauth_response["bot_user_id"],  # Use bot_user_id consistently
+                bot_user_id=oauth_response["bot_user_id"],
                 bot_scopes=oauth_settings.scopes,
                 user_token=oauth_response.get("authed_user", {}).get("access_token"),
                 installed_at=datetime.datetime.now().timestamp()
@@ -394,22 +394,6 @@ def oauth_redirect():
             # Save the installation
             logger.debug(f"Saving installation for team: {installation.team_id}")
             installation_store.save(installation)
-            
-            # save a copy with the bot user ID for compatibility
-            bot_installation = Installation(
-                app_id=installation.app_id,
-                enterprise_id=installation.enterprise_id,
-                team_id=installation.team_id,
-                team_name=installation.team_name,
-                user_id=installation.bot_user_id,  # Use bot_user_id as the user_id
-                bot_token=installation.bot_token,
-                bot_id=installation.bot_id,
-                bot_user_id=installation.bot_user_id,
-                bot_scopes=installation.bot_scopes,
-                user_token=installation.user_token,
-                installed_at=installation.installed_at
-            )
-            installation_store.save(bot_installation)
             
             return """
             <html>
