@@ -378,17 +378,19 @@ def oauth_redirect():
             
             # Create installation with bot user ID
             installation = Installation(
-                app_id=oauth_response.get("app_id"),
-                enterprise_id=enterprise_id,
-                team_id=oauth_response["team"]["id"],
-                team_name=oauth_response["team"].get("name", ""),
-                user_id=oauth_response["bot_user_id"],  # Use bot_user_id instead of authed_user id
-                bot_token=oauth_response["access_token"],
-                bot_id=oauth_response["bot_user_id"],
-                bot_user_id=oauth_response["bot_user_id"],
-                bot_scopes=oauth_settings.scopes,
-                user_token=oauth_response.get("authed_user", {}).get("access_token"),
-                installed_at=datetime.datetime.now().timestamp()
+                    app_id=oauth_response.get("app_id"),
+                    enterprise_id=enterprise_id,
+                    team_id=oauth_response["team"]["id"],
+                    team_name=oauth_response["team"].get("name", ""),
+    # Corrected line: Get user ID from authed_user instead of bot_user_id
+                     user_id=oauth_response.get("authed_user", {}).get("id", ""),
+                     bot_token=oauth_response["access_token"],
+                     bot_id=oauth_response["bot_user_id"],
+                     bot_user_id=oauth_response["bot_user_id"],
+                     bot_scopes=oauth_settings.scopes,
+                     user_token=oauth_response.get("authed_user", {}).get("access_token"),
+                     installed_at=datetime.datetime.now().timestamp()
+               
             )
             
             # Save the installation
