@@ -73,13 +73,29 @@ app = App(
 
 def get_bot_token_for_team(team_id: str) -> Optional[str]:
     try:
+        # First try to get the latest installation
         installation = installation_store.find_installation(team_id=team_id)
-        if installation and installation.bot_token:
-            logger.debug(f"Found bot token for team {team_id}")
-            return installation.bot_token
-        else:
-            logger.warning(f"No bot token found for team {team_id}")
+        
+        if not installation:
+            logger.warning(f"No installation found for team {team_id}")
             return None
+            
+        if installation.bot_token:
+            # Verify the token is still valid
+            try:
+                client = WebClient(token=installation.bot_token)
+                auth_test = client.auth_test()
+                if auth_test["ok"]:
+                    logger.debug(f"Found valid bot token for team {team_id}")
+                    return installation.bot_token
+                else:
+                    logger.warning(f"Bot token for team {team_id} is invalid")
+            except Exception as e:
+                logger.error(f"Error verifying bot token for team {team_id}: {e}")
+        
+        
+        logger.warning(f"No valid bot token found for team {team_id}")
+        return None
     except Exception as e:
         logger.error(f"Error retrieving token: {e}", exc_info=True)
         return None
@@ -99,13 +115,16 @@ def handle_messages(message, say, logger, client):
             # Get the bot token for this team
             bot_token = get_bot_token_for_team(team_id)
             if not bot_token:
-                say("Error: Bot token is missing. Please reinstall the app.", thread_ts=message.get("ts"))
+                # Check if this is a bot message to avoid infinite loops
+                if not message.get("bot_id"):
+                    say("The app installation appears to be invalid. Please reinstall the app using the /slack/install endpoint.", thread_ts=message.get("ts"))
                 return
             # Update the client with the correct token for this request
             client.token = bot_token
         else:
             logger.error("No team_id found in message")
-            say("Error: Could not identify team. Please reinstall the app.", thread_ts=message.get("ts"))
+            if not message.get("bot_id"):
+                say("Error: Could not identify team. Please reinstall the app.", thread_ts=message.get("ts"))
             return
 
         # Skip bot messages and messages that are app mentions
