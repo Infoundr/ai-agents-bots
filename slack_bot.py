@@ -71,6 +71,19 @@ app = App(
     client=client
 )
 
+def get_bot_token_for_team(team_id: str) -> Optional[str]:
+    try:
+        installation = installation_store.find_installation(team_id=team_id)
+        if installation and installation.bot_token:
+            logger.debug(f"Found bot token for team {team_id}")
+            return installation.bot_token
+        else:
+            logger.warning(f"No bot token found for team {team_id}")
+            return None
+    except Exception as e:
+        logger.error(f"Error retrieving token: {e}", exc_info=True)
+        return None
+
 conversation_histories: Dict[str, Dict] = defaultdict(lambda: {
     "current_bot": None,
     "thread_ts": None,
@@ -78,14 +91,24 @@ conversation_histories: Dict[str, Dict] = defaultdict(lambda: {
 })
 
 @app.message("")
-def handle_messages(message, say, logger):
+def handle_messages(message, say, logger, client):
     try:
-        # Check for valid token
-        if not app.client.token:
-            say("Error: Bot token is missing. Please reinstall the app.", thread_ts=message.get("ts"))
+        # Get team_id from message context
+        team_id = message.get("team")
+        if team_id:
+            # Get the bot token for this team
+            bot_token = get_bot_token_for_team(team_id)
+            if not bot_token:
+                say("Error: Bot token is missing. Please reinstall the app.", thread_ts=message.get("ts"))
+                return
+            # Update the client with the correct token for this request
+            client.token = bot_token
+        else:
+            logger.error("No team_id found in message")
+            say("Error: Could not identify team. Please reinstall the app.", thread_ts=message.get("ts"))
             return
 
-        # Skip bot messages and messages that are app mentions (will be handled by app_mention handler)
+        # Skip bot messages and messages that are app mentions
         if message.get("bot_id") or message.get("subtype") == "bot_message" or message.get("text", "").startswith("<@"):
             return
 
@@ -117,7 +140,6 @@ def handle_messages(message, say, logger):
 
         # More flexible bot request handling with multiple patterns
         for bot_name in BOTS.keys():
-            # Checking for various patterns: "Ask Bot:", "Ask Bot", "@Bot", "Bot:"
             patterns = [
                 re.compile(rf"(?i)^ask\s+{re.escape(bot_name)}:?\s*(.*)", re.IGNORECASE),
                 re.compile(rf"(?i)^@{re.escape(bot_name)}:?\s*(.*)", re.IGNORECASE),
@@ -130,11 +152,9 @@ def handle_messages(message, say, logger):
                     question = match.group(1).strip()
                     logger.debug(f"Matched bot {bot_name} with question: {question}")
                     if question:
-                        # Clear any previous conversation and set the new bot
                         bot = BOTS[bot_name]
                         response = bot.get_response(question)
                         
-                        # Update conversation state
                         conversation_histories[conversation_key] = {
                             "current_bot": bot_name,
                             "thread_ts": thread_ts,
@@ -155,11 +175,21 @@ def handle_messages(message, say, logger):
         say(f"I encountered an error. Please try asking your question again.", thread_ts=message.get("ts"))
 
 @app.event("app_mention")
-def handle_app_mention(event, say, logger):
+def handle_app_mention(event, say, logger, client):
     try:
-        # Check for valid token
-        if not app.client.token:
-            say("Error: Bot token is missing. Please reinstall the app.", thread_ts=event.get("ts"))
+        # Get team_id from event context
+        team_id = event.get("team")
+        if team_id:
+            # Get the bot token for this team
+            bot_token = get_bot_token_for_team(team_id)
+            if not bot_token:
+                say("Error: Bot token is missing. Please reinstall the app.", thread_ts=event.get("ts"))
+                return
+            # Update the client with the correct token for this request
+            client.token = bot_token
+        else:
+            logger.error("No team_id found in event")
+            say("Error: Could not identify team. Please reinstall the app.", thread_ts=event.get("ts"))
             return
 
         channel_id = event.get("channel")
@@ -177,7 +207,6 @@ def handle_app_mention(event, say, logger):
             current_bot = conversation_histories[conversation_key]["current_bot"]
             if current_bot:
                 logger.debug(f"Found ongoing conversation with {current_bot}")
-                # Check if this message is explicitly asking for a different bot
                 is_new_bot_request = False
                 for bot_name in BOTS.keys():
                     if re.search(rf"(?i)ask\s+{re.escape(bot_name)}|@{re.escape(bot_name)}|^{re.escape(bot_name)}\b", cleaned_text):
@@ -191,7 +220,6 @@ def handle_app_mention(event, say, logger):
 
         # More flexible bot request handling with multiple patterns
         for bot_name in BOTS.keys():
-            # Check various patterns: "ask bot:", "ask bot", "@bot", "bot:"
             patterns = [
                 re.compile(rf"(?i)ask\s+{re.escape(bot_name)}:?\s*(.*)", re.IGNORECASE),
                 re.compile(rf"(?i)@{re.escape(bot_name)}:?\s*(.*)", re.IGNORECASE),
@@ -204,11 +232,10 @@ def handle_app_mention(event, say, logger):
                     question = match.group(1).strip()
                     logger.debug(f"Matched bot {bot_name} with question: {question}")
                     if question:
-                        # Clear any previous conversation and set the new bot
                         conversation_histories[conversation_key] = {
                             "current_bot": bot_name,
                             "thread_ts": thread_ts,
-                            "history": [(question, response)]  # Add the initial Q&A to history
+                            "history": [(question, response)]
                         }
                         logger.debug(f"Set conversation to use bot: {bot_name}")
                         response = BOTS[bot_name].get_response(question)

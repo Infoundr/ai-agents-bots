@@ -7,3 +7,5 @@ __pycache__
 slack_installations/
 # SpecStory explanation file
 .specstory/.what-is-this.md
+
+venv_py311
