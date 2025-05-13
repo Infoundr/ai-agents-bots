@@ -42,7 +42,10 @@ ssl_context.check_hostname = False
 ssl_context.verify_mode = ssl.CERT_NONE
 
 # Initialize installation store
-installation_store = FileInstallationStore(base_dir="./slack_installations")
+installation_store = FileInstallationStore(
+    base_dir="./slack_installations",
+    client_id=os.environ["SLACK_CLIENT_ID"]
+)
 
 # Configure OAuth settings with expanded scopes
 oauth_settings = OAuthSettings(
@@ -74,6 +77,7 @@ app = App(
 def get_bot_token_for_team(team_id: str) -> Optional[str]:
     try:
         # First try to get the latest installation
+        logger.debug(f"Looking for installation for team {team_id}")
         installation = installation_store.find_installation(team_id=team_id)
         
         if not installation:
@@ -83,6 +87,7 @@ def get_bot_token_for_team(team_id: str) -> Optional[str]:
         if installation.bot_token:
             # Verify the token is still valid
             try:
+                logger.debug(f"Found installation with bot_id: {installation.bot_id}, user_id: {installation.user_id}")
                 client = WebClient(token=installation.bot_token)
                 auth_test = client.auth_test()
                 if auth_test["ok"]:
@@ -382,7 +387,6 @@ def oauth_redirect():
                     enterprise_id=enterprise_id,
                     team_id=oauth_response["team"]["id"],
                     team_name=oauth_response["team"].get("name", ""),
-    # Corrected line: Get user ID from authed_user instead of bot_user_id
                      user_id=oauth_response.get("authed_user", {}).get("id", ""),
                      bot_token=oauth_response["access_token"],
                      bot_id=oauth_response["bot_user_id"],
