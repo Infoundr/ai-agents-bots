@@ -97,6 +97,16 @@ def get_bot_token_for_team(team_id: str) -> Optional[str]:
                     logger.warning(f"Bot token for team {team_id} is invalid")
             except Exception as e:
                 logger.error(f"Error verifying bot token for team {team_id}: {e}")
+                # Try to find installation with bot ID as user ID
+                try:
+                    installation = installation_store.find_installation(
+                        team_id=team_id,
+                        user_id=auth_test.get("user_id")
+                    )
+                    if installation and installation.bot_token:
+                        return installation.bot_token
+                except Exception as inner_e:
+                    logger.error(f"Error finding installation with bot ID: {inner_e}")
         
         logger.warning(f"No valid bot token found for team {team_id}")
         return None
@@ -387,18 +397,22 @@ def oauth_redirect():
                     enterprise_id=enterprise_id,
                     team_id=oauth_response["team"]["id"],
                     team_name=oauth_response["team"].get("name", ""),
-                     user_id=oauth_response.get("authed_user", {}).get("id", ""),
-                     bot_token=oauth_response["access_token"],
-                     bot_id=oauth_response["bot_user_id"],
-                     bot_user_id=oauth_response["bot_user_id"],
-                     bot_scopes=oauth_settings.scopes,
-                     user_token=oauth_response.get("authed_user", {}).get("access_token"),
-                     installed_at=datetime.datetime.now().timestamp()
-               
+                    user_id=oauth_response.get("authed_user", {}).get("id", ""),
+                    bot_token=oauth_response["access_token"],
+                    bot_id=oauth_response["bot_user_id"],
+                    bot_user_id=oauth_response["bot_user_id"],
+                    bot_scopes=oauth_settings.scopes,
+                    user_token=oauth_response.get("authed_user", {}).get("access_token"),
+                    installed_at=datetime.datetime.now().timestamp()
             )
             
             # Save the installation
             logger.debug(f"Saving installation for team: {installation.team_id}")
+            logger.debug(f"Bot ID: {installation.bot_id}, User ID: {installation.user_id}")
+            installation_store.save(installation)
+            
+            # Also save a copy with the bot ID as the user ID to handle both cases
+            installation.user_id = installation.bot_id
             installation_store.save(installation)
             
             return """
