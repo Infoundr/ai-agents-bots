@@ -78,7 +78,31 @@ def get_bot_token_for_team(team_id: str) -> Optional[str]:
     try:
         # First try to get the latest installation
         logger.debug(f"Looking for installation for team {team_id}")
-        installation = installation_store.find_installation(team_id=team_id)
+        
+        # Try different ways to find the installation
+        installation = None
+        
+       
+        installation = installation_store.find_installation(
+            team_id=team_id,
+            enterprise_id=None  # Required parameter, None for non-enterprise workspaces
+        )
+        
+        # If not found, try with bot_id as user_id
+        if not installation:
+            logger.debug("Trying to find installation with bot_id as user_id")
+            # Get bot_id from auth_test
+            try:
+                client = WebClient()
+                auth_test = client.auth_test()
+                if auth_test["ok"]:
+                    installation = installation_store.find_installation(
+                        team_id=team_id,
+                        user_id=auth_test.get("user_id"),
+                        enterprise_id=None  # Required parameter, None for non-enterprise workspaces
+                    )
+            except Exception as e:
+                logger.error(f"Error getting bot_id: {e}")
         
         if not installation:
             logger.warning(f"No installation found for team {team_id}")
@@ -97,16 +121,6 @@ def get_bot_token_for_team(team_id: str) -> Optional[str]:
                     logger.warning(f"Bot token for team {team_id} is invalid")
             except Exception as e:
                 logger.error(f"Error verifying bot token for team {team_id}: {e}")
-                # Try to find installation with bot ID as user ID
-                try:
-                    installation = installation_store.find_installation(
-                        team_id=team_id,
-                        user_id=auth_test.get("user_id")
-                    )
-                    if installation and installation.bot_token:
-                        return installation.bot_token
-                except Exception as inner_e:
-                    logger.error(f"Error finding installation with bot ID: {inner_e}")
         
         logger.warning(f"No valid bot token found for team {team_id}")
         return None
@@ -265,13 +279,17 @@ def handle_app_mention(event, say, logger, client):
                     question = match.group(1).strip()
                     logger.debug(f"Matched bot {bot_name} with question: {question}")
                     if question:
+                        bot = BOTS[bot_name]
+                        response = bot.get_response(question)
+                        
+                        # Update conversation history after getting the response
                         conversation_histories[conversation_key] = {
                             "current_bot": bot_name,
                             "thread_ts": thread_ts,
                             "history": [(question, response)]
                         }
                         logger.debug(f"Set conversation to use bot: {bot_name}")
-                        response = BOTS[bot_name].get_response(question)
+                        
                         say(f"*{bot_name} says:*\n{response}", thread_ts=thread_ts)
                         return
 
@@ -281,6 +299,7 @@ def handle_app_mention(event, say, logger, client):
 
     except Exception as e:
         logger.error(f"Error processing app_mention: {e}", exc_info=True)
+        say("I encountered an error. Please try asking your question again.", thread_ts=event.get("ts"))
 
 @app.command("/hello")
 def hello_command(ack, body, respond):
