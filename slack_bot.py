@@ -279,13 +279,17 @@ def handle_app_mention(event, say, logger, client):
                     question = match.group(1).strip()
                     logger.debug(f"Matched bot {bot_name} with question: {question}")
                     if question:
+                        bot = BOTS[bot_name]
+                        response = bot.get_response(question)
+                        
+                        # Update conversation history after getting the response
                         conversation_histories[conversation_key] = {
                             "current_bot": bot_name,
                             "thread_ts": thread_ts,
                             "history": [(question, response)]
                         }
                         logger.debug(f"Set conversation to use bot: {bot_name}")
-                        response = BOTS[bot_name].get_response(question)
+                        
                         say(f"*{bot_name} says:*\n{response}", thread_ts=thread_ts)
                         return
 
@@ -295,6 +299,7 @@ def handle_app_mention(event, say, logger, client):
 
     except Exception as e:
         logger.error(f"Error processing app_mention: {e}", exc_info=True)
+        say("I encountered an error. Please try asking your question again.", thread_ts=event.get("ts"))
 
 @app.command("/hello")
 def hello_command(ack, body, respond):
