@@ -82,8 +82,11 @@ def get_bot_token_for_team(team_id: str) -> Optional[str]:
         # Try different ways to find the installation
         installation = None
         
-        # Try with just team_id first
-        installation = installation_store.find_installation(team_id=team_id)
+       
+        installation = installation_store.find_installation(
+            team_id=team_id,
+            enterprise_id=None  # Required parameter, None for non-enterprise workspaces
+        )
         
         # If not found, try with bot_id as user_id
         if not installation:
@@ -95,7 +98,8 @@ def get_bot_token_for_team(team_id: str) -> Optional[str]:
                 if auth_test["ok"]:
                     installation = installation_store.find_installation(
                         team_id=team_id,
-                        user_id=auth_test.get("user_id")
+                        user_id=auth_test.get("user_id"),
+                        enterprise_id=None  # Required parameter, None for non-enterprise workspaces
                     )
             except Exception as e:
                 logger.error(f"Error getting bot_id: {e}")
