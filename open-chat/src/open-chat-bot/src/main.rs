@@ -783,7 +783,10 @@ impl oc_bots_sdk::api::command::CommandHandler<AgentRuntime> for BotCommandHandl
                             • Dean - DevOps Expert\n\
                             \nExample: `Benny - How do I validate my startup idea?`".to_string()
                         )
-                        .execute_then_return_message(|_, _| ());
+                        .with_finalised(true)
+                        .execute_then_return_message(|_, msg| {
+                            info!("Bot response: {:?}", msg);
+                        });
 
                     return Ok(oc_bots_sdk::api::command::SuccessResult { message: help_message });
                 }
@@ -802,7 +805,10 @@ impl oc_bots_sdk::api::command::CommandHandler<AgentRuntime> for BotCommandHandl
                             • Felix - Frontend Expert\n\
                             • Dean - DevOps Expert", parts[0].trim())
                         )
-                        .execute_then_return_message(|_, _| ());
+                        .with_finalised(true)
+                        .execute_then_return_message(|_, msg| {
+                            info!("Bot response: {:?}", msg);
+                        });
 
                     return Ok(oc_bots_sdk::api::command::SuccessResult { message: error_message });
                 }
@@ -833,7 +839,10 @@ impl oc_bots_sdk::api::command::CommandHandler<AgentRuntime> for BotCommandHandl
                                     "❌ **An error occurred**\n\n\
                                     Please try running the command again. If the problem persists, contact support.".to_string()
                                 )
-                                .execute_then_return_message(|_, _| ());
+                                .with_finalised(true)
+                                .execute_then_return_message(|_, msg| {
+                                    info!("Bot response: {:?}", msg);
+                                });
 
                             return Ok(oc_bots_sdk::api::command::SuccessResult { message: error_message });
                         },
@@ -844,7 +853,10 @@ impl oc_bots_sdk::api::command::CommandHandler<AgentRuntime> for BotCommandHandl
                                     "❌ **An error occurred**\n\n\
                                     Please try running the command again. If the problem persists, contact support.".to_string()
                                 )
-                                .execute_then_return_message(|_, _| ());
+                                .with_finalised(true)
+                                .execute_then_return_message(|_, msg| {
+                                    info!("Bot response: {:?}", msg);
+                                });
 
                             return Ok(oc_bots_sdk::api::command::SuccessResult { message: error_message });
                         }
@@ -880,7 +892,10 @@ impl oc_bots_sdk::api::command::CommandHandler<AgentRuntime> for BotCommandHandl
                                     "⚠️ **Message too large**\n\n\
                                     The response was too large to store. Please try a shorter message or contact support.".to_string()
                                 )
-                                .execute_then_return_message(|_, _| ());
+                                .with_finalised(true)
+                                .execute_then_return_message(|_, msg| {
+                                    info!("Bot response: {:?}", msg);
+                                });
                             return Ok(oc_bots_sdk::api::command::SuccessResult { message: error_message });
                         } else {
                             return Err(e);
@@ -893,7 +908,10 @@ impl oc_bots_sdk::api::command::CommandHandler<AgentRuntime> for BotCommandHandl
                 let message = oc_client_factory
                     .build(context)
                     .send_text_message(formatted_response)
-                    .execute_then_return_message(|_, _| ());
+                    .with_finalised(true)
+                    .execute_then_return_message(|_, msg| {
+                        info!("Bot response: {:?}", msg);
+                    });
                 
                 Ok(oc_bots_sdk::api::command::SuccessResult { message })
             },
@@ -913,7 +931,10 @@ impl oc_bots_sdk::api::command::CommandHandler<AgentRuntime> for BotCommandHandl
                             • `/project create [description]` - Create a new task\n\n\
                             Example: `/project create Build landing page`".to_string()
                         )
-                        .execute_then_return_message(|_, _| ());
+                        .with_finalised(true)
+                        .execute_then_return_message(|_, msg| {
+                            info!("Bot response: {:?}", msg);
+                        });
 
                     return Ok(oc_bots_sdk::api::command::SuccessResult { message: help_message });
                 }
@@ -938,7 +959,10 @@ impl oc_bots_sdk::api::command::CommandHandler<AgentRuntime> for BotCommandHandl
                                 • `/project create [description]` - Create a new task\n\n\
                                 Example: `/project create Build landing page`".to_string()
                             )
-                            .execute_then_return_message(|_, _| ());
+                            .with_finalised(true)
+                            .execute_then_return_message(|_, msg| {
+                                info!("Bot response: {:?}", msg);
+                            });
 
                         return Ok(oc_bots_sdk::api::command::SuccessResult { message: help_message });
                     }
@@ -1018,7 +1042,10 @@ impl oc_bots_sdk::api::command::CommandHandler<AgentRuntime> for BotCommandHandl
                                     "❌ **An error occurred**\n\n\
                                     Please try running the command again. If the problem persists, contact support.".to_string()
                                 )
-                                .execute_then_return_message(|_, _| ());
+                                .with_finalised(true)
+                                .execute_then_return_message(|_, msg| {
+                                    info!("Bot response: {:?}", msg);
+                                });
 
                             return Ok(oc_bots_sdk::api::command::SuccessResult { message: error_message });
                         },
@@ -1029,7 +1056,10 @@ impl oc_bots_sdk::api::command::CommandHandler<AgentRuntime> for BotCommandHandl
                                     "❌ **An error occurred**\n\n\
                                     Please try running the command again. If the problem persists, contact support.".to_string()
                                 )
-                                .execute_then_return_message(|_, _| ());
+                                .with_finalised(true)
+                                .execute_then_return_message(|_, msg| {
+                                    info!("Bot response: {:?}", msg);
+                                });
 
                             return Ok(oc_bots_sdk::api::command::SuccessResult { message: error_message });
                         }
@@ -1069,7 +1099,10 @@ impl oc_bots_sdk::api::command::CommandHandler<AgentRuntime> for BotCommandHandl
                 let message = oc_client_factory
                     .build(context)
                     .send_text_message(formatted_response)
-                    .execute_then_return_message(|_, _| ());
+                    .with_finalised(true)
+                    .execute_then_return_message(|_, msg| {
+                        info!("Bot response: {:?}", msg);
+                    });
                 
                 Ok(oc_bots_sdk::api::command::SuccessResult { message })
             },
@@ -1121,7 +1154,10 @@ impl oc_bots_sdk::api::command::CommandHandler<AgentRuntime> for BotCommandHandl
                 let message = oc_client_factory
                     .build(context)
                     .send_text_message(help_text)
-                    .execute_then_return_message(|_, _| ());
+                    .with_finalised(true)
+                    .execute_then_return_message(|_, msg| {
+                        info!("Bot response: {:?}", msg);
+                    });
 
                 Ok(oc_bots_sdk::api::command::SuccessResult { message })
             },
@@ -1145,7 +1181,10 @@ impl oc_bots_sdk::api::command::CommandHandler<AgentRuntime> for BotCommandHandl
                             • `/github check_repo` - Check connected repository\n\n\
                             Example: `/github create Fix login bug -- The login button is not working`".to_string()
                         )
-                        .execute_then_return_message(|_, _| ());
+                        .with_finalised(true)
+                        .execute_then_return_message(|_, msg| {
+                            info!("Bot response: {:?}", msg);
+                        });
 
                     return Ok(oc_bots_sdk::api::command::SuccessResult { message: help_message });
                 }
@@ -1178,7 +1217,10 @@ impl oc_bots_sdk::api::command::CommandHandler<AgentRuntime> for BotCommandHandl
                                 • `/github check_repo` - Check connected repository\n\n\
                                 Example: `/github create Fix login bug -- The login button is not working`".to_string()
                             )
-                            .execute_then_return_message(|_, _| ());
+                            .with_finalised(true)
+                            .execute_then_return_message(|_, msg| {
+                                info!("Bot response: {:?}", msg);
+                            });
 
                         return Ok(oc_bots_sdk::api::command::SuccessResult { message: help_message });
                     }
@@ -1257,7 +1299,10 @@ impl oc_bots_sdk::api::command::CommandHandler<AgentRuntime> for BotCommandHandl
                             let message = oc_client_factory
                                 .build(context)
                                 .send_text_message(error_message.to_string())
-                                .execute_then_return_message(|_, _| ());
+                                .with_finalised(true)
+                                .execute_then_return_message(|_, msg| {
+                                    info!("Bot response: {:?}", msg);
+                                });
                             return Ok(oc_bots_sdk::api::command::SuccessResult { message });
                         }
 
@@ -1348,7 +1393,10 @@ impl oc_bots_sdk::api::command::CommandHandler<AgentRuntime> for BotCommandHandl
                                     "❌ **An error occurred**\n\n\
                                     Please try running the command again. If the problem persists, contact support.".to_string()
                                 )
-                                .execute_then_return_message(|_, _| ());
+                                .with_finalised(true)
+                                .execute_then_return_message(|_, msg| {
+                                    info!("Bot response: {:?}", msg);
+                                });
 
                             return Ok(oc_bots_sdk::api::command::SuccessResult { message: error_message });
                         },
@@ -1359,7 +1407,10 @@ impl oc_bots_sdk::api::command::CommandHandler<AgentRuntime> for BotCommandHandl
                                     "❌ **An error occurred**\n\n\
                                     Please try running the command again. If the problem persists, contact support.".to_string()
                                 )
-                                .execute_then_return_message(|_, _| ());
+                                .with_finalised(true)
+                                .execute_then_return_message(|_, msg| {
+                                    info!("Bot response: {:?}", msg);
+                                });
 
                             return Ok(oc_bots_sdk::api::command::SuccessResult { message: error_message });
                         }
@@ -1376,7 +1427,10 @@ impl oc_bots_sdk::api::command::CommandHandler<AgentRuntime> for BotCommandHandl
                 let message = oc_client_factory
                     .build(context)
                     .send_text_message(formatted_response)
-                    .execute_then_return_message(|_, _| ());
+                    .with_finalised(true)
+                    .execute_then_return_message(|_, msg| {
+                        info!("Bot response: {:?}", msg);
+                    });
                 
                 Ok(oc_bots_sdk::api::command::SuccessResult { message })
             }, 
@@ -1400,7 +1454,10 @@ impl oc_bots_sdk::api::command::CommandHandler<AgentRuntime> for BotCommandHandl
                 let message = oc_client_factory
                     .build(context)
                     .send_text_message(message)
-                    .execute_then_return_message(|_, _| ());
+                    .with_finalised(true)
+                    .execute_then_return_message(|_, msg| {
+                        info!("Bot response: {:?}", msg);
+                    });
                 
                 Ok(oc_bots_sdk::api::command::SuccessResult { message })
             },
@@ -1437,6 +1494,7 @@ impl oc_bots_sdk::api::command::CommandHandler<AgentRuntime> for BotCommandHandl
                         **Help** ❓\n\
                         `/help` - Get detailed help and command information".to_string()
                     )
+                    .with_finalised(true)
                     .execute_then_return_message(|_, _| ());
 
                 Ok(oc_bots_sdk::api::command::SuccessResult { message: help_message })
