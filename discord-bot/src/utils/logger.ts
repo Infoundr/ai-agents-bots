@@ -1,11 +1,17 @@
-export const logger = {
-    info: (message: string) => {
-        console.log(`[INFO] ${new Date().toISOString()}: ${message}`);
-    },
-    warn: (message: string) => {
-        console.warn(`[WARN] ${new Date().toISOString()}: ${message}`);
-    },
-    error: (message: string) => {
-        console.error(`[ERROR] ${new Date().toISOString()}: ${message}`);
-    }
-};
+import winston from 'winston';
+
+export const logger = winston.createLogger({
+    level: process.env.NODE_ENV === 'production' ? 'info' : 'debug',
+    format: winston.format.combine(
+        winston.format.timestamp(),
+        winston.format.colorize(),
+        winston.format.printf(({ timestamp, level, message }) => {
+            return `${timestamp} [${level}]: ${message}`;
+        })
+    ),
+    transports: [
+        new winston.transports.Console(),
+        new winston.transports.File({ filename: 'error.log', level: 'error' }),
+        new winston.transports.File({ filename: 'combined.log' })
+    ]
+});
