@@ -1,0 +1,33 @@
+{
+  "name": "discord-bot",
+  "version": "1.0.0",
+  "description": "A Discord bot that provides AI-driven responses to user queries.",
+  "main": "src/bot/index.ts",
+  "scripts": {
+    "start": "ts-node src/bot/index.ts",
+    "build": "tsc",
+    "dev": "ts-node-dev src/bot/index.ts"
+  },
+  "dependencies": {
+    "@langchain/openai": "^0.5.10",
+    "discord.js": "^14.19.3",
+    "dotenv": "^10.0.0",
+    "langchain": "^0.3.26",
+    "typescript": "^4.9.5",
+    "winston": "^3.17.0"
+  },
+  "devDependencies": {
+    "@types/dotenv": "^8.2.0",
+    "@types/node": "^16.0.0",
+    "ts-node": "^10.9.2",
+    "ts-node-dev": "^1.1.0"
+  },
+  "keywords": [
+    "discord",
+    "bot",
+    "ai",
+    "typescript"
+  ],
+  "author": "Your Name",
+  "license": "MIT"
+}
