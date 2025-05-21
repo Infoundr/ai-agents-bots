@@ -1,8 +1,9 @@
 import { Client, Collection, REST, Routes } from 'discord.js';
 import { helloCommand } from './hello';
+import { askCommand } from './ask';
 import { logger } from '../../utils/logger';
 
-const commands = [helloCommand];
+const commands = [helloCommand, askCommand];
 
 export async function registerCommands(client: Client) {
     try {
