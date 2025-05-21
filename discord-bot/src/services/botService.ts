@@ -2,12 +2,13 @@ import { ChatOpenAI } from '@langchain/openai';
 import { HumanMessage, AIMessage } from '@langchain/core/messages';
 import { ChatPromptTemplate, MessagesPlaceholder } from '@langchain/core/prompts';
 import { logger } from '../utils/logger';
+import axios from 'axios';
 
 interface BotConfig {
     name: string;
     role: string;
     expertise: string;
-    personality: string;
+    personality?: string;
     context?: string;
     examplePrompts?: string[];
 }
@@ -17,8 +18,14 @@ export class Bot {
     private messageHistory: (HumanMessage | AIMessage)[];
     private prompt: ChatPromptTemplate;
     private chain: any;
+    private config: BotConfig;
+    public readonly role: string;
+    public readonly expertise: string;
 
     constructor(config: BotConfig) {
+        this.config = config;
+        this.role = config.role;
+        this.expertise = config.expertise;
         this.chatModel = new ChatOpenAI({
             modelName: "gpt-4",
             temperature: 0.7,
@@ -40,7 +47,11 @@ export class Bot {
     }
 
     private buildSystemMessage(config: BotConfig): string {
-        let message = `You are ${config.name}, ${config.role}. Your expertise is in ${config.expertise}. Personality: ${config.personality}`;
+        let message = `You are ${config.name}, ${config.role}. Your expertise is in ${config.expertise}.`;
+
+        if (config.personality) {
+            message += ` Personality: ${config.personality}`;
+        }
 
         if (config.context) {
             message += `\n\nExperience and Knowledge:\n${config.context}`;
@@ -72,31 +83,37 @@ export class Bot {
             this.messageHistory.push(new AIMessage(response.content));
             return response.content;
         } catch (error) {
-            logger.error(`Error getting response from ${this.constructor.name}:`, error);
+            logger.error(`Error getting response from ${this.config.name}:`, error);
             throw error;
         }
     }
 }
 
-// Define the expert bots
-export const BOTS = {
-    "Benny": new Bot({
-        name: "Benny",
-        role: "Financial Decision Making Expert from Payd",
-        expertise: "fintech strategies, payment solutions, financial planning for startups",
-        personality: "Professional, data-driven, focused on financial innovation",
-        context: `
-        Fundraising Experience:
-        - For my first funding round, I structured a small pre-seed round from angel investors and grants targeted at my sector.
-        - I focused on getting just enough capital to prove the concept before seeking larger institutional funding.
-        - Key metrics that helped attract investors included customer traction, revenue growth rate, and market validation through partnerships.
-        - An early mistake I made was underestimating our burn rate and raising less than needed, which forced seeking another round sooner than expected.
-        - For valuation and equity splits, I used a SAFE agreement for flexibility and avoided giving up too much equity early on.
-        - I brought in advisors to help with fundraising negotiations.
-        
-        FinTech Regulatory Navigation:
-        - I worked with legal experts to ensure we met financial compliance requirements in different African markets before pitching to investors.
-        - Being proactive about regulatory concerns reassured investors about potential risks in this space.`
-    }),
-    // Add more bots here...
-}; 
+// Function to fetch bot info from API
+async function fetchBotInfo(): Promise<Record<string, BotConfig>> {
+    try {
+        const response = await axios.get('http://154.38.174.112:5005/api/bot_info');
+        return response.data;
+    } catch (error) {
+        logger.error('Error fetching bot info:', error);
+        throw error;
+    }
+}
+
+// Initialize bots from API
+export async function initializeBots(): Promise<Record<string, Bot>> {
+    const botConfigs = await fetchBotInfo();
+    const bots: Record<string, Bot> = {};
+
+    for (const [name, config] of Object.entries(botConfigs)) {
+        bots[name] = new Bot({
+            ...config,
+            personality: "Professional, knowledgeable, and helpful" // Default personality if not provided
+        });
+    }
+
+    return bots;
+}
+
+// Export an empty BOTS object that will be populated after initialization
+export let BOTS: Record<string, Bot> = {}; 

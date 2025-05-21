@@ -1,13 +1,10 @@
-import { Client, Collection } from 'discord.js';
-import { CommandInteraction } from 'discord.js';
-
-export interface Command {
-    data: any;
-    execute: (interaction: CommandInteraction) => Promise<void>;
-}
+import { Client, Collection, ChatInputCommandInteraction } from 'discord.js';
 
 declare module 'discord.js' {
     export interface Client {
-        commands: Collection<string, Command>;
+        commands: Collection<string, {
+            data: any;
+            execute(interaction: ChatInputCommandInteraction): Promise<void>;
+        }>;
     }
 }

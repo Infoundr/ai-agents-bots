@@ -1,9 +1,15 @@
-import { Client, Collection, REST, Routes } from 'discord.js';
+import { Client, Collection, REST, Routes, ChatInputCommandInteraction } from 'discord.js';
 import { helloCommand } from './hello';
 import { askCommand } from './ask';
+import { listCommand } from './list';
 import { logger } from '../../utils/logger';
 
-const commands = [helloCommand, askCommand];
+export interface Command {
+    data: any;
+    execute(interaction: ChatInputCommandInteraction): Promise<void>;
+}
+
+export const commands = [helloCommand, askCommand, listCommand];
 
 export async function registerCommands(client: Client) {
     try {
@@ -27,7 +33,7 @@ export async function registerCommands(client: Client) {
 
         // Handle command interactions
         client.on('interactionCreate', async interaction => {
-            if (!interaction.isCommand()) return;
+            if (!interaction.isChatInputCommand()) return;
 
             const command = client.commands.get(interaction.commandName);
             if (!command) return;

@@ -1,6 +1,6 @@
-import { ChatOpenAI } from 'langchain/chat_models/openai';
-import { HumanMessage, AIMessage, SystemMessage } from 'langchain/schema';
-import { ChatPromptTemplate } from 'langchain/prompts';
+import { ChatOpenAI } from '@langchain/openai';
+import { HumanMessage, AIMessage, SystemMessage } from '@langchain/core/messages';
+import { ChatPromptTemplate } from '@langchain/core/prompts';
 
 export class Bot {
     private chatModel: ChatOpenAI;
@@ -23,6 +23,11 @@ export class Bot {
 
         const systemMessage = this.createSystemMessage();
         this.messageHistory.push(new SystemMessage(systemMessage));
+        
+        this.prompt = ChatPromptTemplate.fromMessages([
+            ["system", systemMessage],
+            ["human", "{input}"]
+        ]);
     }
 
     private createSystemMessage(): string {
@@ -40,9 +45,10 @@ export class Bot {
             this.messageHistory.push(new HumanMessage(input));
             
             const response = await this.chatModel.call(this.messageHistory);
-            this.messageHistory.push(new AIMessage(response.content));
+            const content = typeof response.content === 'string' ? response.content : JSON.stringify(response.content);
+            this.messageHistory.push(new AIMessage(content));
             
-            return response.content;
+            return content;
         } catch (error) {
             console.error('Error getting response:', error);
             throw error;
