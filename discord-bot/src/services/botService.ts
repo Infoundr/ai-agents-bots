@@ -26,10 +26,15 @@ export class Bot {
         this.config = config;
         this.role = config.role;
         this.expertise = config.expertise;
+        
+        if (!process.env.OPENAI_API_KEY) {
+            throw new Error('OPENAI_API_KEY is not set');
+        }
+
         this.chatModel = new ChatOpenAI({
             modelName: "gpt-4",
             temperature: 0.7,
-            apiKey: process.env.OPENAI_API_KEY,
+            openAIApiKey: process.env.OPENAI_API_KEY,
             timeout: 30000,
             maxRetries: 3
         });
@@ -92,27 +97,67 @@ export class Bot {
 // Function to fetch bot info from API
 async function fetchBotInfo(): Promise<Record<string, BotConfig>> {
     try {
+        logger.info('Fetching bot info from API...');
         const response = await axios.get('http://154.38.174.112:5005/api/bot_info');
+        logger.info('API Response received:', response.data);
+        
+        if (!response.data || Object.keys(response.data).length === 0) {
+            throw new Error('No bot data received from API');
+        }
+        
+        const botCount = Object.keys(response.data).length;
+        logger.info(`Fetched ${botCount} bots from API: ${Object.keys(response.data).join(', ')}`);
         return response.data;
     } catch (error) {
         logger.error('Error fetching bot info:', error);
+        if (axios.isAxiosError(error)) {
+            logger.error('API Error details:', {
+                status: error.response?.status,
+                statusText: error.response?.statusText,
+                data: error.response?.data
+            });
+        }
         throw error;
     }
 }
 
 // Initialize bots from API
 export async function initializeBots(): Promise<Record<string, Bot>> {
-    const botConfigs = await fetchBotInfo();
-    const bots: Record<string, Bot> = {};
+    try {
+        logger.info('Starting bot initialization...');
+        const botConfigs = await fetchBotInfo();
+        const bots: Record<string, Bot> = {};
 
-    for (const [name, config] of Object.entries(botConfigs)) {
-        bots[name] = new Bot({
-            ...config,
-            personality: "Professional, knowledgeable, and helpful" // Default personality if not provided
-        });
+        for (const [name, config] of Object.entries(botConfigs)) {
+            try {
+                logger.info(`Initializing bot ${name} with config:`, config);
+                bots[name] = new Bot({
+                    ...config,
+                    personality: config.personality || "Professional, knowledgeable, and helpful"
+                });
+                logger.info(`Successfully initialized bot: ${name}`);
+            } catch (error) {
+                logger.error(`Error initializing bot ${name}:`, error);
+                if (error instanceof Error) {
+                    logger.error(`Error details for ${name}: ${error.message}`);
+                }
+            }
+        }
+
+        if (Object.keys(bots).length === 0) {
+            throw new Error('No bots were successfully initialized');
+        }
+
+        const botNames = Object.keys(bots).join(', ');
+        logger.info(`Successfully initialized ${Object.keys(bots).length} bots: ${botNames}`);
+        return bots;
+    } catch (error) {
+        logger.error('Error initializing bots:', error);
+        if (error instanceof Error) {
+            logger.error(`Initialization error details: ${error.message}`);
+        }
+        throw error;
     }
-
-    return bots;
 }
 
 // Export an empty BOTS object that will be populated after initialization

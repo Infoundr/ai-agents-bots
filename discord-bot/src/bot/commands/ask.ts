@@ -9,13 +9,7 @@ export const askCommand = {
         .addStringOption(option =>
             option.setName('expert')
                 .setDescription('The expert to ask')
-                .setRequired(true)
-                .addChoices(
-                    ...Object.entries(BOTS).map(([name, bot]) => ({
-                        name: `${name} - ${bot.role}`,
-                        value: name
-                    }))
-                ))
+                .setRequired(true))
         .addStringOption(option =>
             option.setName('question')
                 .setDescription('Your question for the expert')
@@ -26,17 +20,29 @@ export const askCommand = {
             const expert = interaction.options.getString('expert', true);
             const question = interaction.options.getString('question', true);
 
+            logger.info(`Received question for expert ${expert}: ${question}`);
+            logger.info(`Available bots: ${Object.keys(BOTS).join(', ')}`);
+
             // Defer the reply since the AI response might take some time
             await interaction.deferReply();
 
-            const bot = BOTS[expert as keyof typeof BOTS];
+            // Check if the bot exists
+            const bot = BOTS[expert];
             if (!bot) {
-                await interaction.editReply(`Sorry, I couldn't find the expert ${expert}.`);
+                logger.error(`Bot not found: ${expert}. Available bots: ${Object.keys(BOTS).join(', ')}`);
+                await interaction.editReply(`Sorry, I couldn't find the expert ${expert}. Please use /list to see available experts.`);
                 return;
             }
 
-            const response = await bot.getResponse(question);
-            await interaction.editReply(`**${expert} says:**\n${response}`);
+            try {
+                logger.info(`Getting response from ${expert}...`);
+                const response = await bot.getResponse(question);
+                logger.info(`Got response from ${expert}`);
+                await interaction.editReply(`**${expert} says:**\n${response}`);
+            } catch (error) {
+                logger.error(`Error getting response from ${expert}:`, error);
+                await interaction.editReply(`Sorry, ${expert} is having trouble responding right now. Please try again later.`);
+            }
         } catch (error) {
             logger.error('Error executing ask command:', error);
             if (!interaction.replied && !interaction.deferred) {
