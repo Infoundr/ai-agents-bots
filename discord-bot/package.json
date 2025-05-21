@@ -11,6 +11,9 @@
     "test": "jest"
   },
   "dependencies": {
+    "@langchain/community": "^0.0.34",
+    "@langchain/core": "^0.1.48",
+    "@langchain/openai": "^0.0.14",
     "discord.js": "^14.14.1",
     "dotenv": "^16.4.1",
     "winston": "^3.11.0"

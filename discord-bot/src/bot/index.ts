@@ -1,5 +1,5 @@
 import { Client, GatewayIntentBits, Partials } from 'discord.js';
-import { config } from '../config/index';
+// import { config } from '../config/index';
 import { registerCommands } from './commands';
 import { logger } from '../utils/logger';
 import dotenv from 'dotenv';
