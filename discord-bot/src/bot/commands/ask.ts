@@ -11,8 +11,10 @@ export const askCommand = {
                 .setDescription('The expert to ask')
                 .setRequired(true)
                 .addChoices(
-                    { name: 'Benny - Financial Expert', value: 'Benny' },
-                    // Add more experts here
+                    ...Object.entries(BOTS).map(([name, bot]) => ({
+                        name: `${name} - ${bot.role}`,
+                        value: name
+                    }))
                 ))
         .addStringOption(option =>
             option.setName('question')
