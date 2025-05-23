@@ -1495,7 +1495,9 @@ impl oc_bots_sdk::api::command::CommandHandler<AgentRuntime> for BotCommandHandl
                         `/help` - Get detailed help and command information".to_string()
                     )
                     .with_finalised(true)
-                    .execute_then_return_message(|_, _| ());
+                    .execute_then_return_message(|_, msg| {
+                        info!("Bot response: {:?}", msg);
+                    });
 
                 Ok(oc_bots_sdk::api::command::SuccessResult { message: help_message })
             }
