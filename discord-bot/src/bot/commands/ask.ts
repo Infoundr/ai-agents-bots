@@ -1,6 +1,64 @@
 import { ChatInputCommandInteraction, SlashCommandBuilder } from 'discord.js';
-import { BOTS } from '../../services/botService';
+import { processCommand } from '../../services/botService';
 import { logger } from '../../utils/logger';
+
+// Function to split text into chunks of max length
+function splitIntoChunks(text: string, maxLength: number = 1900): string[] {
+    const chunks: string[] = [];
+    let currentChunk = '';
+    
+    // Split by newlines first to keep paragraphs together
+    const paragraphs = text.split('\n');
+    
+    for (const paragraph of paragraphs) {
+        // If adding this paragraph would exceed the limit, start a new chunk
+        if (currentChunk.length + paragraph.length + 1 > maxLength) {
+            if (currentChunk) {
+                chunks.push(currentChunk.trim());
+                currentChunk = '';
+            }
+            
+            // If a single paragraph is longer than maxLength, split it by sentences
+            if (paragraph.length > maxLength) {
+                const sentences = paragraph.match(/[^.!?]+[.!?]+/g) || [paragraph];
+                for (const sentence of sentences) {
+                    if (currentChunk.length + sentence.length > maxLength) {
+                        if (currentChunk) {
+                            chunks.push(currentChunk.trim());
+                            currentChunk = '';
+                        }
+                        // If a single sentence is longer than maxLength, split it by words
+                        if (sentence.length > maxLength) {
+                            const words = sentence.split(' ');
+                            for (const word of words) {
+                                if (currentChunk.length + word.length + 1 > maxLength) {
+                                    chunks.push(currentChunk.trim());
+                                    currentChunk = word;
+                                } else {
+                                    currentChunk += (currentChunk ? ' ' : '') + word;
+                                }
+                            }
+                        } else {
+                            currentChunk = sentence;
+                        }
+                    } else {
+                        currentChunk += (currentChunk ? ' ' : '') + sentence;
+                    }
+                }
+            } else {
+                currentChunk = paragraph;
+            }
+        } else {
+            currentChunk += (currentChunk ? '\n' : '') + paragraph;
+        }
+    }
+    
+    if (currentChunk) {
+        chunks.push(currentChunk.trim());
+    }
+    
+    return chunks;
+}
 
 export const askCommand = {
     data: new SlashCommandBuilder()
@@ -21,24 +79,25 @@ export const askCommand = {
             const question = interaction.options.getString('question', true);
 
             logger.info(`Received question for expert ${expert}: ${question}`);
-            logger.info(`Available bots: ${Object.keys(BOTS).join(', ')}`);
 
-            // Defer the reply since the AI response might take some time
+            // Defer the reply since the API response might take some time
             await interaction.deferReply();
 
-            // Check if the bot exists
-            const bot = BOTS[expert];
-            if (!bot) {
-                logger.error(`Bot not found: ${expert}. Available bots: ${Object.keys(BOTS).join(', ')}`);
-                await interaction.editReply(`Sorry, I couldn't find the expert ${expert}. Please use /list to see available experts.`);
-                return;
-            }
-
             try {
-                logger.info(`Getting response from ${expert}...`);
-                const response = await bot.getResponse(question);
+                logger.info(`Processing command for ${expert}...`);
+                const response = await processCommand(expert, question);
                 logger.info(`Got response from ${expert}`);
-                await interaction.editReply(`**${expert} says:**\n${response}`);
+                
+                // Split the response into chunks if it's too long
+                const chunks = splitIntoChunks(response);
+                
+                // Send the first chunk as the main reply
+                await interaction.editReply(`**${expert} says:**\n${chunks[0]}`);
+                
+                // Send additional chunks as follow-up messages
+                for (let i = 1; i < chunks.length; i++) {
+                    await interaction.followUp(chunks[i]);
+                }
             } catch (error) {
                 logger.error(`Error getting response from ${expert}:`, error);
                 await interaction.editReply(`Sorry, ${expert} is having trouble responding right now. Please try again later.`);

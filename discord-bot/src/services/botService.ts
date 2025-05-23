@@ -98,18 +98,58 @@ export class Bot {
 async function fetchBotInfo(): Promise<Record<string, BotConfig>> {
     try {
         logger.info('Fetching bot info from API...');
-        const response = await axios.get('http://154.38.174.112:5005/api/bot_info');
+        const response = await axios.get('http://154.38.174.112:5005/api/health');
         logger.info('API Response received:', response.data);
         
-        if (!response.data || Object.keys(response.data).length === 0) {
+        if (!response.data || !response.data.bots_available) {
             throw new Error('No bot data received from API');
         }
         
-        const botCount = Object.keys(response.data).length;
-        logger.info(`Fetched ${botCount} bots from API: ${Object.keys(response.data).join(', ')}`);
-        return response.data;
+        
+        const botConfigs: Record<string, BotConfig> = {};
+        for (const botName of response.data.bots_available) {
+            botConfigs[botName] = {
+                name: botName,
+                role: "Expert",
+                expertise: "General",
+                personality: "Professional, knowledgeable, and helpful"
+            };
+        }
+        
+        const botCount = Object.keys(botConfigs).length;
+        logger.info(`Fetched ${botCount} bots from API: ${Object.keys(botConfigs).join(', ')}`);
+        return botConfigs;
     } catch (error) {
         logger.error('Error fetching bot info:', error);
+        if (axios.isAxiosError(error)) {
+            logger.error('API Error details:', {
+                status: error.response?.status,
+                statusText: error.response?.statusText,
+                data: error.response?.data
+            });
+        }
+        throw error;
+    }
+}
+
+// Function to process commands through the API
+export async function processCommand(botName: string, question: string): Promise<string> {
+    try {
+        logger.info(`Processing command for bot ${botName} with question: ${question}`);
+        const response = await axios.post('http://154.38.174.112:5005/api/process_command', {
+            command: `ask_${botName.toLowerCase()}`,
+            args: {
+                question: question
+            }
+        });
+
+        if (!response.data || !response.data.text) {
+            throw new Error('Invalid response from API');
+        }
+
+        return response.data.text;
+    } catch (error) {
+        logger.error(`Error processing command for bot ${botName}:`, error);
         if (axios.isAxiosError(error)) {
             logger.error('API Error details:', {
                 status: error.response?.status,
