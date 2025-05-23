@@ -5,7 +5,7 @@ from slack_bolt.oauth.oauth_flow import OAuthFlow
 from slack_sdk.web import WebClient
 from slack_sdk.oauth.installation_store import FileInstallationStore
 from slack_sdk.oauth.installation_store.models.installation import Installation
-from agent_bots import BOTS
+from core.agent_bots import BOTS
 import os
 from dotenv import load_dotenv
 import ssl

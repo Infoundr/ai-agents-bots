@@ -1,13 +1,13 @@
 from flask import Flask, request, jsonify
-from agent_bots import BOTS
+from core.agent_bots import BOTS
 import logging
-from integrations.manager import IntegrationManager
-from integrations.user_credentials import UserCredentialStore
+from core.integrations.manager import IntegrationManager
+from core.integrations.user_credentials import UserCredentialStore
 import os
 import json
 from pathlib import Path
 import asana
-from integrations.github_integration import GitHubIntegration
+from core.integrations.github_integration import GitHubIntegration
 
 # Configure logging
 logging.basicConfig(

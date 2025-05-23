@@ -7,7 +7,7 @@ import streamlit as st
 import os
 import re
 from dotenv import load_dotenv
-from integrations.manager import IntegrationManager
+from core.integrations.manager import IntegrationManager
 
 # Load environment variables
 load_dotenv()
@@ -247,7 +247,7 @@ BOTS = {
         - I built leadership capacity by identifying high-potential team members early and creating personalized development plans.
         - My most successful teams had diverse skill sets but aligned values - something I now screen for in all hiring.
         - I implemented a "leadership rotation" program where promising managers spent time in different departments.
-        - My biggest leadership mistake was promoting based on technical skills rather than people management abilities.
+        - My bigwggest leadership mistake was promoting based on technical skills rather than people management abilities.
         """,
         example_prompts=[
             "When is the right time to start scaling my startup?",
