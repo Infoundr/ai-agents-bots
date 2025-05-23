@@ -3,6 +3,7 @@ import { helloCommand } from './hello';
 import { askCommand } from './ask';
 import { listCommand } from './list';
 import { logger } from '../../utils/logger';
+import { BOTS } from '../../services/botService';
 
 export interface Command {
     data: any;
@@ -14,6 +15,9 @@ export const commands = [helloCommand, askCommand, listCommand];
 export async function registerCommands(client: Client) {
     try {
         const rest = new REST({ version: '10' }).setToken(process.env.DISCORD_TOKEN!);
+        
+        // Log available bots
+        logger.info(`Available bots during command registration: ${Object.keys(BOTS).join(', ')}`);
         
         // Register commands globally
         await rest.put(
