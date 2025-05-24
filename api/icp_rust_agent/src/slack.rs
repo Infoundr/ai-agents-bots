@@ -120,27 +120,35 @@ impl SlackClient {
     }
 
     pub async fn store_chat_message(&self, slack_id: String, message: ChatMessage) -> Result<SlackResponse<()>, String> {
-        let identifier = UserIdentifier::SlackId(slack_id);
-        let args = Encode!(&identifier, &message)
-            .map_err(|e| format!("Failed to encode arguments: {}", e))?;
+        // First ensure the user is registered
+        match self.ensure_user_registered(slack_id.clone()).await {
+            Ok(_) => {
+                // User is registered, proceed with storing the message
+                let identifier = UserIdentifier::SlackId(slack_id);
+                let args = Encode!(&identifier, &message)
+                    .map_err(|e| format!("Failed to encode arguments: {}", e))?;
 
-        match self.agent
-            .update(&self.canister_id, "store_chat_message")
-            .with_arg(args)
-            .call_and_wait()
-            .await
-        {
-            Ok(_) => Ok(SlackResponse::success(())),
-            Err(e) => Ok(SlackResponse::error(format!("Failed to store message: {}", e))),
+                match self.agent
+                    .update(&self.canister_id, "store_chat_message")
+                    .with_arg(args)
+                    .call_and_wait()
+                    .await
+                {
+                    Ok(_) => Ok(SlackResponse::success(())),
+                    Err(e) => Ok(SlackResponse::error(format!("Failed to store message: {}", e))),
+                }
+            },
+            Err(e) => Ok(SlackResponse::error(format!("Failed to register user: {}", e))),
         }
     }
 
     pub async fn get_messages(&self, slack_id: String) -> Result<SlackResponse<Vec<ChatMessage>>, String> {
-        let args = Encode!(&slack_id)
+        let identifier = UserIdentifier::SlackId(slack_id);
+        let args = Encode!(&identifier)
             .map_err(|e| format!("Failed to encode arguments: {}", e))?;
 
         let response = self.agent
-            .query(&self.canister_id, "get_chat_messages")
+            .query(&self.canister_id, "get_chat_history")
             .with_arg(args)
             .call()
             .await

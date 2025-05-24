@@ -271,10 +271,10 @@ enum UserIdentifier {
 Here's a complete sequence of commands to test the API:
 
 ```bash
-# 1. Register a new user
+# 1. Register a new user (DO NOT USE - done automatically in the logic, code is only for testing purposes)
 curl -X POST http://localhost:3000/slack/users/U123456789/register
 
-# 2. Verify user registration
+# 2. Verify user registration (DO NOT USE - done automatically in the logic, code is only for testing purposes)
 curl http://localhost:3000/slack/users/U123456789
 
 # 3. Store a user message
