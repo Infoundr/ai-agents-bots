@@ -19,8 +19,8 @@ use slack::{
     GitHubConnection, GitHubIssue, AsanaConnection, AsanaTask
 };
 
-// const CANISTER_ID: &str = "g7ko2-fyaaa-aaaam-qdlea-cai"; // mainnet
-const CANISTER_ID: &str = "4dz5m-uyaaa-aaaab-qac6a-cai"; // testnet
+const CANISTER_ID: &str = "g7ko2-fyaaa-aaaam-qdlea-cai"; // mainnet
+// const CANISTER_ID: &str = "4r7kv-yiaaa-aaaab-qac5a-cai"; // testnet
 
 #[derive(Clone)]
 struct AppState {
