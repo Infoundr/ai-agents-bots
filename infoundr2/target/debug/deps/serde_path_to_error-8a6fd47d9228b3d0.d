@@ -1,0 +1,9 @@
+/Users/nigelchimwene/Desktop/projects/work/inFoundr/ai-agents-bots/infoundr2/target/debug/deps/libserde_path_to_error-8a6fd47d9228b3d0.rmeta: /Users/nigelchimwene/.cargo/registry/src/index.crates.io-6f17d22bba15001f/serde_path_to_error-0.1.17/src/lib.rs /Users/nigelchimwene/.cargo/registry/src/index.crates.io-6f17d22bba15001f/serde_path_to_error-0.1.17/src/de.rs /Users/nigelchimwene/.cargo/registry/src/index.crates.io-6f17d22bba15001f/serde_path_to_error-0.1.17/src/path.rs /Users/nigelchimwene/.cargo/registry/src/index.crates.io-6f17d22bba15001f/serde_path_to_error-0.1.17/src/ser.rs /Users/nigelchimwene/.cargo/registry/src/index.crates.io-6f17d22bba15001f/serde_path_to_error-0.1.17/src/wrap.rs
+
+/Users/nigelchimwene/Desktop/projects/work/inFoundr/ai-agents-bots/infoundr2/target/debug/deps/serde_path_to_error-8a6fd47d9228b3d0.d: /Users/nigelchimwene/.cargo/registry/src/index.crates.io-6f17d22bba15001f/serde_path_to_error-0.1.17/src/lib.rs /Users/nigelchimwene/.cargo/registry/src/index.crates.io-6f17d22bba15001f/serde_path_to_error-0.1.17/src/de.rs /Users/nigelchimwene/.cargo/registry/src/index.crates.io-6f17d22bba15001f/serde_path_to_error-0.1.17/src/path.rs /Users/nigelchimwene/.cargo/registry/src/index.crates.io-6f17d22bba15001f/serde_path_to_error-0.1.17/src/ser.rs /Users/nigelchimwene/.cargo/registry/src/index.crates.io-6f17d22bba15001f/serde_path_to_error-0.1.17/src/wrap.rs
+
+/Users/nigelchimwene/.cargo/registry/src/index.crates.io-6f17d22bba15001f/serde_path_to_error-0.1.17/src/lib.rs:
+/Users/nigelchimwene/.cargo/registry/src/index.crates.io-6f17d22bba15001f/serde_path_to_error-0.1.17/src/de.rs:
+/Users/nigelchimwene/.cargo/registry/src/index.crates.io-6f17d22bba15001f/serde_path_to_error-0.1.17/src/path.rs:
+/Users/nigelchimwene/.cargo/registry/src/index.crates.io-6f17d22bba15001f/serde_path_to_error-0.1.17/src/ser.rs:
+/Users/nigelchimwene/.cargo/registry/src/index.crates.io-6f17d22bba15001f/serde_path_to_error-0.1.17/src/wrap.rs:

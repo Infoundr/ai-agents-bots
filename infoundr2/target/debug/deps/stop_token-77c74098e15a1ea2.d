@@ -1,0 +1,9 @@
+/Users/nigelchimwene/Desktop/projects/work/inFoundr/ai-agents-bots/infoundr2/target/debug/deps/libstop_token-77c74098e15a1ea2.rmeta: /Users/nigelchimwene/.cargo/registry/src/index.crates.io-6f17d22bba15001f/stop-token-0.7.0/src/lib.rs /Users/nigelchimwene/.cargo/registry/src/index.crates.io-6f17d22bba15001f/stop-token-0.7.0/src/future.rs /Users/nigelchimwene/.cargo/registry/src/index.crates.io-6f17d22bba15001f/stop-token-0.7.0/src/stream.rs /Users/nigelchimwene/.cargo/registry/src/index.crates.io-6f17d22bba15001f/stop-token-0.7.0/src/deadline.rs /Users/nigelchimwene/.cargo/registry/src/index.crates.io-6f17d22bba15001f/stop-token-0.7.0/src/stop_source.rs
+
+/Users/nigelchimwene/Desktop/projects/work/inFoundr/ai-agents-bots/infoundr2/target/debug/deps/stop_token-77c74098e15a1ea2.d: /Users/nigelchimwene/.cargo/registry/src/index.crates.io-6f17d22bba15001f/stop-token-0.7.0/src/lib.rs /Users/nigelchimwene/.cargo/registry/src/index.crates.io-6f17d22bba15001f/stop-token-0.7.0/src/future.rs /Users/nigelchimwene/.cargo/registry/src/index.crates.io-6f17d22bba15001f/stop-token-0.7.0/src/stream.rs /Users/nigelchimwene/.cargo/registry/src/index.crates.io-6f17d22bba15001f/stop-token-0.7.0/src/deadline.rs /Users/nigelchimwene/.cargo/registry/src/index.crates.io-6f17d22bba15001f/stop-token-0.7.0/src/stop_source.rs
+
+/Users/nigelchimwene/.cargo/registry/src/index.crates.io-6f17d22bba15001f/stop-token-0.7.0/src/lib.rs:
+/Users/nigelchimwene/.cargo/registry/src/index.crates.io-6f17d22bba15001f/stop-token-0.7.0/src/future.rs:
+/Users/nigelchimwene/.cargo/registry/src/index.crates.io-6f17d22bba15001f/stop-token-0.7.0/src/stream.rs:
+/Users/nigelchimwene/.cargo/registry/src/index.crates.io-6f17d22bba15001f/stop-token-0.7.0/src/deadline.rs:
+/Users/nigelchimwene/.cargo/registry/src/index.crates.io-6f17d22bba15001f/stop-token-0.7.0/src/stop_source.rs:

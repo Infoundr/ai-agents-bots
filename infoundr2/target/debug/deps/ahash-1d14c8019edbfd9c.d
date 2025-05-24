@@ -1,0 +1,10 @@
+/Users/nigelchimwene/Desktop/projects/work/inFoundr/ai-agents-bots/infoundr2/target/debug/deps/libahash-1d14c8019edbfd9c.rmeta: /Users/nigelchimwene/.cargo/registry/src/index.crates.io-6f17d22bba15001f/ahash-0.8.12/src/lib.rs /Users/nigelchimwene/.cargo/registry/src/index.crates.io-6f17d22bba15001f/ahash-0.8.12/src/convert.rs /Users/nigelchimwene/.cargo/registry/src/index.crates.io-6f17d22bba15001f/ahash-0.8.12/src/fallback_hash.rs /Users/nigelchimwene/.cargo/registry/src/index.crates.io-6f17d22bba15001f/ahash-0.8.12/src/operations.rs /Users/nigelchimwene/.cargo/registry/src/index.crates.io-6f17d22bba15001f/ahash-0.8.12/src/random_state.rs /Users/nigelchimwene/.cargo/registry/src/index.crates.io-6f17d22bba15001f/ahash-0.8.12/src/specialize.rs
+
+/Users/nigelchimwene/Desktop/projects/work/inFoundr/ai-agents-bots/infoundr2/target/debug/deps/ahash-1d14c8019edbfd9c.d: /Users/nigelchimwene/.cargo/registry/src/index.crates.io-6f17d22bba15001f/ahash-0.8.12/src/lib.rs /Users/nigelchimwene/.cargo/registry/src/index.crates.io-6f17d22bba15001f/ahash-0.8.12/src/convert.rs /Users/nigelchimwene/.cargo/registry/src/index.crates.io-6f17d22bba15001f/ahash-0.8.12/src/fallback_hash.rs /Users/nigelchimwene/.cargo/registry/src/index.crates.io-6f17d22bba15001f/ahash-0.8.12/src/operations.rs /Users/nigelchimwene/.cargo/registry/src/index.crates.io-6f17d22bba15001f/ahash-0.8.12/src/random_state.rs /Users/nigelchimwene/.cargo/registry/src/index.crates.io-6f17d22bba15001f/ahash-0.8.12/src/specialize.rs
+
+/Users/nigelchimwene/.cargo/registry/src/index.crates.io-6f17d22bba15001f/ahash-0.8.12/src/lib.rs:
+/Users/nigelchimwene/.cargo/registry/src/index.crates.io-6f17d22bba15001f/ahash-0.8.12/src/convert.rs:
+/Users/nigelchimwene/.cargo/registry/src/index.crates.io-6f17d22bba15001f/ahash-0.8.12/src/fallback_hash.rs:
+/Users/nigelchimwene/.cargo/registry/src/index.crates.io-6f17d22bba15001f/ahash-0.8.12/src/operations.rs:
+/Users/nigelchimwene/.cargo/registry/src/index.crates.io-6f17d22bba15001f/ahash-0.8.12/src/random_state.rs:
+/Users/nigelchimwene/.cargo/registry/src/index.crates.io-6f17d22bba15001f/ahash-0.8.12/src/specialize.rs:

@@ -1,0 +1,8 @@
+/Users/nigelchimwene/Desktop/projects/work/inFoundr/ai-agents-bots/infoundr2/target/debug/deps/libic_transport_types-2d0ccf71d25d7958.rmeta: /Users/nigelchimwene/.cargo/registry/src/index.crates.io-6f17d22bba15001f/ic-transport-types-0.39.3/src/lib.rs /Users/nigelchimwene/.cargo/registry/src/index.crates.io-6f17d22bba15001f/ic-transport-types-0.39.3/src/request_id.rs /Users/nigelchimwene/.cargo/registry/src/index.crates.io-6f17d22bba15001f/ic-transport-types-0.39.3/src/request_id/error.rs /Users/nigelchimwene/.cargo/registry/src/index.crates.io-6f17d22bba15001f/ic-transport-types-0.39.3/src/signed.rs
+
+/Users/nigelchimwene/Desktop/projects/work/inFoundr/ai-agents-bots/infoundr2/target/debug/deps/ic_transport_types-2d0ccf71d25d7958.d: /Users/nigelchimwene/.cargo/registry/src/index.crates.io-6f17d22bba15001f/ic-transport-types-0.39.3/src/lib.rs /Users/nigelchimwene/.cargo/registry/src/index.crates.io-6f17d22bba15001f/ic-transport-types-0.39.3/src/request_id.rs /Users/nigelchimwene/.cargo/registry/src/index.crates.io-6f17d22bba15001f/ic-transport-types-0.39.3/src/request_id/error.rs /Users/nigelchimwene/.cargo/registry/src/index.crates.io-6f17d22bba15001f/ic-transport-types-0.39.3/src/signed.rs
+
+/Users/nigelchimwene/.cargo/registry/src/index.crates.io-6f17d22bba15001f/ic-transport-types-0.39.3/src/lib.rs:
+/Users/nigelchimwene/.cargo/registry/src/index.crates.io-6f17d22bba15001f/ic-transport-types-0.39.3/src/request_id.rs:
+/Users/nigelchimwene/.cargo/registry/src/index.crates.io-6f17d22bba15001f/ic-transport-types-0.39.3/src/request_id/error.rs:
+/Users/nigelchimwene/.cargo/registry/src/index.crates.io-6f17d22bba15001f/ic-transport-types-0.39.3/src/signed.rs:

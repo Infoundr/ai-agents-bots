@@ -1,0 +1,8 @@
+/Users/nigelchimwene/Desktop/projects/work/inFoundr/ai-agents-bots/infoundr2/target/debug/deps/liboc_bots_sdk_offchain-1423bee8a5fc434b.rmeta: /Users/nigelchimwene/.cargo/git/checkouts/open-chat-bots-907a99af6761b27e/874641f/rs/offchain/sdk/src/lib.rs /Users/nigelchimwene/.cargo/git/checkouts/open-chat-bots-907a99af6761b27e/874641f/rs/offchain/sdk/src/agent_builder.rs /Users/nigelchimwene/.cargo/git/checkouts/open-chat-bots-907a99af6761b27e/874641f/rs/offchain/sdk/src/agent_runtime.rs /Users/nigelchimwene/.cargo/git/checkouts/open-chat-bots-907a99af6761b27e/874641f/rs/offchain/sdk/src/env.rs
+
+/Users/nigelchimwene/Desktop/projects/work/inFoundr/ai-agents-bots/infoundr2/target/debug/deps/oc_bots_sdk_offchain-1423bee8a5fc434b.d: /Users/nigelchimwene/.cargo/git/checkouts/open-chat-bots-907a99af6761b27e/874641f/rs/offchain/sdk/src/lib.rs /Users/nigelchimwene/.cargo/git/checkouts/open-chat-bots-907a99af6761b27e/874641f/rs/offchain/sdk/src/agent_builder.rs /Users/nigelchimwene/.cargo/git/checkouts/open-chat-bots-907a99af6761b27e/874641f/rs/offchain/sdk/src/agent_runtime.rs /Users/nigelchimwene/.cargo/git/checkouts/open-chat-bots-907a99af6761b27e/874641f/rs/offchain/sdk/src/env.rs
+
+/Users/nigelchimwene/.cargo/git/checkouts/open-chat-bots-907a99af6761b27e/874641f/rs/offchain/sdk/src/lib.rs:
+/Users/nigelchimwene/.cargo/git/checkouts/open-chat-bots-907a99af6761b27e/874641f/rs/offchain/sdk/src/agent_builder.rs:
+/Users/nigelchimwene/.cargo/git/checkouts/open-chat-bots-907a99af6761b27e/874641f/rs/offchain/sdk/src/agent_runtime.rs:
+/Users/nigelchimwene/.cargo/git/checkouts/open-chat-bots-907a99af6761b27e/874641f/rs/offchain/sdk/src/env.rs:

@@ -1,0 +1,9 @@
+/Users/nigelchimwene/Desktop/projects/work/inFoundr/ai-agents-bots/infoundr2/target/debug/deps/libhyper_rustls-32e7f6bce9842835.rmeta: /Users/nigelchimwene/.cargo/registry/src/index.crates.io-6f17d22bba15001f/hyper-rustls-0.27.5/src/lib.rs /Users/nigelchimwene/.cargo/registry/src/index.crates.io-6f17d22bba15001f/hyper-rustls-0.27.5/src/config.rs /Users/nigelchimwene/.cargo/registry/src/index.crates.io-6f17d22bba15001f/hyper-rustls-0.27.5/src/connector.rs /Users/nigelchimwene/.cargo/registry/src/index.crates.io-6f17d22bba15001f/hyper-rustls-0.27.5/src/connector/builder.rs /Users/nigelchimwene/.cargo/registry/src/index.crates.io-6f17d22bba15001f/hyper-rustls-0.27.5/src/stream.rs
+
+/Users/nigelchimwene/Desktop/projects/work/inFoundr/ai-agents-bots/infoundr2/target/debug/deps/hyper_rustls-32e7f6bce9842835.d: /Users/nigelchimwene/.cargo/registry/src/index.crates.io-6f17d22bba15001f/hyper-rustls-0.27.5/src/lib.rs /Users/nigelchimwene/.cargo/registry/src/index.crates.io-6f17d22bba15001f/hyper-rustls-0.27.5/src/config.rs /Users/nigelchimwene/.cargo/registry/src/index.crates.io-6f17d22bba15001f/hyper-rustls-0.27.5/src/connector.rs /Users/nigelchimwene/.cargo/registry/src/index.crates.io-6f17d22bba15001f/hyper-rustls-0.27.5/src/connector/builder.rs /Users/nigelchimwene/.cargo/registry/src/index.crates.io-6f17d22bba15001f/hyper-rustls-0.27.5/src/stream.rs
+
+/Users/nigelchimwene/.cargo/registry/src/index.crates.io-6f17d22bba15001f/hyper-rustls-0.27.5/src/lib.rs:
+/Users/nigelchimwene/.cargo/registry/src/index.crates.io-6f17d22bba15001f/hyper-rustls-0.27.5/src/config.rs:
+/Users/nigelchimwene/.cargo/registry/src/index.crates.io-6f17d22bba15001f/hyper-rustls-0.27.5/src/connector.rs:
+/Users/nigelchimwene/.cargo/registry/src/index.crates.io-6f17d22bba15001f/hyper-rustls-0.27.5/src/connector/builder.rs:
+/Users/nigelchimwene/.cargo/registry/src/index.crates.io-6f17d22bba15001f/hyper-rustls-0.27.5/src/stream.rs:
