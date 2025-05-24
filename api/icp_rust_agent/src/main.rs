@@ -14,10 +14,10 @@ use serde::Serialize;
 use std::net::SocketAddr;
 
 mod slack;
-use slack::{SlackClient, SlackUser, SlackMessage, SlackResponse};
+use slack::{SlackClient, SlackUser, ChatMessage, SlackResponse, MessageRole};
 
 // const CANISTER_ID: &str = "g7ko2-fyaaa-aaaam-qdlea-cai"; // mainnet
-const CANISTER_ID: &str = "4ey3y-zaaaa-aaaab-qac6q-cai"; // testnet
+const CANISTER_ID: &str = "4dz5m-uyaaa-aaaab-qac6a-cai"; // testnet
 
 #[derive(Clone)]
 struct AppState {
@@ -82,7 +82,7 @@ async fn get_slack_user(
 async fn get_slack_messages(
     State(state): State<AppState>,
     Path(slack_id): Path<String>,
-) -> Json<SlackResponse<Vec<SlackMessage>>> {
+) -> Json<SlackResponse<Vec<ChatMessage>>> {
     match state.slack_client.get_messages(slack_id).await {
         Ok(response) => Json(response),
         Err(e) => Json(SlackResponse::error(e)),
@@ -92,7 +92,7 @@ async fn get_slack_messages(
 async fn store_slack_message(
     State(state): State<AppState>,
     Path(slack_id): Path<String>,
-    Json(message): Json<SlackMessage>,
+    Json(message): Json<ChatMessage>,
 ) -> Json<SlackResponse<()>> {
     match state.slack_client.store_chat_message(slack_id, message).await {
         Ok(response) => Json(response),

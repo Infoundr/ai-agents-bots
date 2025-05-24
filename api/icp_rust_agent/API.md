@@ -143,7 +143,7 @@ curl http://localhost:3000/slack/messages/U123456789
 POST /slack/messages/:slack_id
 ```
 
-Stores a chat message in the system.
+Stores a chat message in the system. The message will be associated with the user's principal ID, which is derived from their Slack ID if not already set.
 
 **Path Parameters:**
 - `slack_id` (string): The Slack user ID
@@ -244,25 +244,25 @@ enum MessageRole {
 }
 ```
 
-### SlackUser
+### ChatMessage
 ```rust
-struct SlackUser {
-    slack_id: String,
-    site_principal: Option<Principal>,
-    display_name: Option<String>,
-    team_id: Option<String>
-}
-```
-
-### SlackMessage
-```rust
-struct SlackMessage {
+struct ChatMessage {
     id: Principal,
     role: MessageRole,
     content: String,
     question_asked: Option<String>,
     timestamp: u64,
     bot_name: Option<String>
+}
+```
+
+### UserIdentifier
+```rust
+enum UserIdentifier {
+    Principal(Principal),
+    OpenChatId(String),
+    SlackId(String),
+    DiscordId(String)
 }
 ```
 

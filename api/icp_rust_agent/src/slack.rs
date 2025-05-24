@@ -19,7 +19,7 @@ pub enum MessageRole {
 }
 
 #[derive(Debug, Serialize, Deserialize, CandidType)]
-pub struct SlackMessage {
+pub struct ChatMessage {
     pub id: Principal,
     pub role: MessageRole,
     pub content: String,
@@ -28,10 +28,10 @@ pub struct SlackMessage {
     pub bot_name: Option<String>,
 }
 
-impl SlackMessage {
+impl ChatMessage {
     pub fn new(role: MessageRole, content: String, timestamp: u64) -> Self {
         Self {
-            id: Principal::anonymous(),  // Use anonymous principal as default
+            id: Principal::anonymous(),
             role,
             content,
             question_asked: None,
@@ -64,6 +64,14 @@ impl<T> SlackResponse<T> {
             error: Some(error),
         }
     }
+}
+
+#[derive(CandidType)]
+pub enum UserIdentifier {
+    Principal(Principal),
+    OpenChatId(String),
+    SlackId(String),
+    DiscordId(String),
 }
 
 pub struct SlackClient {
@@ -111,7 +119,7 @@ impl SlackClient {
         Ok(SlackResponse::success(user))
     }
 
-    pub async fn store_chat_message(&self, slack_id: String, message: SlackMessage) -> Result<SlackResponse<()>, String> {
+    pub async fn store_chat_message(&self, slack_id: String, message: ChatMessage) -> Result<SlackResponse<()>, String> {
         let identifier = UserIdentifier::SlackId(slack_id);
         let args = Encode!(&identifier, &message)
             .map_err(|e| format!("Failed to encode arguments: {}", e))?;
@@ -125,6 +133,23 @@ impl SlackClient {
             Ok(_) => Ok(SlackResponse::success(())),
             Err(e) => Ok(SlackResponse::error(format!("Failed to store message: {}", e))),
         }
+    }
+
+    pub async fn get_messages(&self, slack_id: String) -> Result<SlackResponse<Vec<ChatMessage>>, String> {
+        let args = Encode!(&slack_id)
+            .map_err(|e| format!("Failed to encode arguments: {}", e))?;
+
+        let response = self.agent
+            .query(&self.canister_id, "get_chat_messages")
+            .with_arg(args)
+            .call()
+            .await
+            .map_err(|e| format!("Failed to get messages: {}", e))?;
+
+        let messages: Vec<ChatMessage> = Decode!(&response, Vec<ChatMessage>)
+            .map_err(|e| format!("Failed to decode response: {}", e))?;
+
+        Ok(SlackResponse::success(messages))
     }
 
     pub async fn generate_dashboard_token(&self, slack_id: String) -> Result<SlackResponse<String>, String> {
@@ -143,26 +168,4 @@ impl SlackClient {
 
         Ok(SlackResponse::success(token))
     }
-
-    pub async fn get_messages(&self, slack_id: String) -> Result<SlackResponse<Vec<SlackMessage>>, String> {
-        let args = Encode!(&slack_id)
-            .map_err(|e| format!("Failed to encode arguments: {}", e))?;
-
-        let response = self.agent
-            .query(&self.canister_id, "get_chat_messages")
-            .with_arg(args)
-            .call()
-            .await
-            .map_err(|e| format!("Failed to get messages: {}", e))?;
-
-        let messages: Vec<SlackMessage> = Decode!(&response, Vec<SlackMessage>)
-            .map_err(|e| format!("Failed to decode response: {}", e))?;
-
-        Ok(SlackResponse::success(messages))
-    }
-}
-
-#[derive(CandidType)]
-pub enum UserIdentifier {
-    SlackId(String),
 } 
