@@ -14,7 +14,10 @@ use serde::Serialize;
 use std::net::SocketAddr;
 
 mod slack;
-use slack::{SlackClient, SlackUser, ChatMessage, SlackResponse, MessageRole};
+use slack::{
+    SlackClient, SlackUser, ChatMessage, SlackResponse,
+    GitHubConnection, GitHubIssue, AsanaConnection, AsanaTask
+};
 
 // const CANISTER_ID: &str = "g7ko2-fyaaa-aaaam-qdlea-cai"; // mainnet
 const CANISTER_ID: &str = "4dz5m-uyaaa-aaaab-qac6a-cai"; // testnet
@@ -40,6 +43,7 @@ pub async fn create_agent(url: Url, use_mainnet: bool) -> Result<Agent> {
     Ok(agent)
 }
 
+#[axum::debug_handler]
 async fn get_admins(State(state): State<AppState>) -> Result<Json<AdminResponse>, String> {
     let args = Encode!().map_err(|e| e.to_string())?;
     
@@ -59,6 +63,7 @@ async fn get_admins(State(state): State<AppState>) -> Result<Json<AdminResponse>
 }
 
 // Slack endpoints
+#[axum::debug_handler]
 async fn ensure_slack_user(
     State(state): State<AppState>,
     Path(slack_id): Path<String>,
@@ -69,6 +74,7 @@ async fn ensure_slack_user(
     }
 }
 
+#[axum::debug_handler]
 async fn get_slack_user(
     State(state): State<AppState>,
     Path(slack_id): Path<String>,
@@ -79,6 +85,7 @@ async fn get_slack_user(
     }
 }
 
+#[axum::debug_handler]
 async fn get_slack_messages(
     State(state): State<AppState>,
     Path(slack_id): Path<String>,
@@ -89,6 +96,7 @@ async fn get_slack_messages(
     }
 }
 
+#[axum::debug_handler]
 async fn store_slack_message(
     State(state): State<AppState>,
     Path(slack_id): Path<String>,
@@ -100,11 +108,83 @@ async fn store_slack_message(
     }
 }
 
+#[axum::debug_handler]
 async fn generate_slack_token(
     State(state): State<AppState>,
     Path(slack_id): Path<String>,
 ) -> Json<SlackResponse<String>> {
     match state.slack_client.generate_dashboard_token(slack_id).await {
+        Ok(response) => Json(response),
+        Err(e) => Json(SlackResponse::error(e)),
+    }
+}
+
+// GitHub endpoints
+#[axum::debug_handler]
+async fn store_github_connection(
+    State(state): State<AppState>,
+    Path(slack_id): Path<String>,
+    Json(connection): Json<GitHubConnection>,
+) -> Json<SlackResponse<()>> {
+    match state.slack_client.store_github_connection(
+        slack_id,
+        connection.token,
+        connection.selected_repo,
+    ).await {
+        Ok(response) => Json(response),
+        Err(e) => Json(SlackResponse::error(e)),
+    }
+}
+
+#[axum::debug_handler]
+async fn store_github_issue(
+    State(state): State<AppState>,
+    Path(slack_id): Path<String>,
+    Json(issue): Json<GitHubIssue>,
+) -> Json<SlackResponse<()>> {
+    match state.slack_client.store_github_issue(slack_id, issue).await {
+        Ok(response) => Json(response),
+        Err(e) => Json(SlackResponse::error(e)),
+    }
+}
+
+#[axum::debug_handler]
+async fn update_github_repo(
+    State(state): State<AppState>,
+    Path(slack_id): Path<String>,
+    Json(repo_name): Json<String>,
+) -> Json<SlackResponse<()>> {
+    match state.slack_client.update_github_selected_repo(slack_id, repo_name).await {
+        Ok(response) => Json(response),
+        Err(e) => Json(SlackResponse::error(e)),
+    }
+}
+
+// Project Management endpoints
+#[axum::debug_handler]
+async fn store_asana_connection(
+    State(state): State<AppState>,
+    Path(slack_id): Path<String>,
+    Json(connection): Json<AsanaConnection>,
+) -> Json<SlackResponse<()>> {
+    match state.slack_client.store_asana_connection(
+        slack_id,
+        connection.token,
+        connection.workspace_id,
+        connection.project_ids,
+    ).await {
+        Ok(response) => Json(response),
+        Err(e) => Json(SlackResponse::error(e)),
+    }
+}
+
+#[axum::debug_handler]
+async fn store_asana_task(
+    State(state): State<AppState>,
+    Path(slack_id): Path<String>,
+    Json(task): Json<AsanaTask>,
+) -> Json<SlackResponse<()>> {
+    match state.slack_client.store_asana_task(slack_id, task).await {
         Ok(response) => Json(response),
         Err(e) => Json(SlackResponse::error(e)),
     }
@@ -134,6 +214,11 @@ async fn main() -> Result<()> {
         .route("/slack/users/:slack_id/register", post(ensure_slack_user))
         .route("/slack/messages/:slack_id", get(get_slack_messages).post(store_slack_message))
         .route("/slack/token/:slack_id", post(generate_slack_token))
+        .route("/slack/github/:slack_id/connect", post(store_github_connection))
+        .route("/slack/github/:slack_id/issues", post(store_github_issue))
+        .route("/slack/github/:slack_id/repo", post(update_github_repo))
+        .route("/slack/asana/:slack_id/connect", post(store_asana_connection))
+        .route("/slack/asana/:slack_id/tasks", post(store_asana_task))
         .with_state(state);
     
     // Run it with hyper on localhost:3000

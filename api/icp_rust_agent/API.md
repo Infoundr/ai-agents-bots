@@ -211,8 +211,224 @@ curl -X POST http://localhost:3000/slack/token/U123456789
 }
 ```
 
-## Discord Integration
-*Coming soon*
+## GitHub Integration
+
+### Connection Management
+
+#### Store GitHub Connection
+```http
+POST /slack/github/:slack_id/connect
+```
+
+Stores a GitHub connection for a Slack user.
+
+**Path Parameters:**
+- `slack_id` (string): The Slack user ID
+
+**Request Body:**
+```json
+{
+    "token": "your_github_token",
+    "selected_repo": null
+}
+```
+
+**Example:**
+```bash
+curl -X POST http://localhost:3000/slack/github/U123456789/connect \
+  -H "Content-Type: application/json" \
+  -d '{
+    "token": "your_github_token",
+    "selected_repo": null
+  }'
+```
+
+**Response:**
+```json
+{
+    "success": true,
+    "data": null,
+    "error": null
+}
+```
+
+#### Update Selected Repository
+```http
+POST /slack/github/:slack_id/repo
+```
+
+Updates the selected GitHub repository for a Slack user.
+
+**Path Parameters:**
+- `slack_id` (string): The Slack user ID
+
+**Request Body:**
+```json
+"owner/repo"
+```
+
+**Example:**
+```bash
+curl -X POST http://localhost:3000/slack/github/U123456789/repo \
+  -H "Content-Type: application/json" \
+  -d '"owner/repo"'
+```
+
+**Response:**
+```json
+{
+    "success": true,
+    "data": null,
+    "error": null
+}
+```
+
+### Issue Management
+
+#### Store GitHub Issue
+```http
+POST /slack/github/:slack_id/issues
+```
+
+Stores a GitHub issue for a Slack user.
+
+**Path Parameters:**
+- `slack_id` (string): The Slack user ID
+
+**Request Body:**
+```json
+{
+    "id": "123",
+    "title": "Bug fix",
+    "body": "Fix the login issue",
+    "repository": "owner/repo",
+    "created_at": 1234567890,
+    "status": "Open"
+}
+```
+
+**Example:**
+```bash
+curl -X POST http://localhost:3000/slack/github/U123456789/issues \
+  -H "Content-Type: application/json" \
+  -d '{
+    "id": "123",
+    "title": "Bug fix",
+    "body": "Fix the login issue",
+    "repository": "owner/repo",
+    "created_at": 1234567890,
+    "status": "Open"
+  }'
+```
+
+**Response:**
+```json
+{
+    "success": true,
+    "data": null,
+    "error": null
+}
+```
+
+## Project Management (Asana)
+
+### Connection Management
+
+#### Store Asana Connection
+```http
+POST /slack/asana/:slack_id/connect
+```
+
+Stores an Asana connection for a Slack user.
+
+**Path Parameters:**
+- `slack_id` (string): The Slack user ID
+
+**Request Body:**
+```json
+{
+    "token": "your_asana_token",
+    "workspace_id": "workspace123",
+    "project_ids": [
+        ["project1", "Project One"],
+        ["project2", "Project Two"]
+    ]
+}
+```
+
+**Example:**
+```bash
+curl -X POST http://localhost:3000/slack/asana/U123456789/connect \
+  -H "Content-Type: application/json" \
+  -d '{
+    "token": "your_asana_token",
+    "workspace_id": "workspace123",
+    "project_ids": [
+        ["project1", "Project One"],
+        ["project2", "Project Two"]
+    ]
+  }'
+```
+
+**Response:**
+```json
+{
+    "success": true,
+    "data": null,
+    "error": null
+}
+```
+
+### Task Management
+
+#### Store Asana Task
+```http
+POST /slack/asana/:slack_id/tasks
+```
+
+Stores an Asana task for a Slack user.
+
+**Path Parameters:**
+- `slack_id` (string): The Slack user ID
+
+**Request Body:**
+```json
+{
+    "id": "task123",
+    "status": "active",
+    "title": "Implement login feature",
+    "creator": "2vxsx-fae",
+    "platform_id": "asana_task_123",
+    "description": "Implement user authentication",
+    "platform": "asana",
+    "created_at": 1234567890
+}
+```
+
+**Example:**
+```bash
+curl -X POST http://localhost:3000/slack/asana/U123456789/tasks \
+  -H "Content-Type: application/json" \
+  -d '{
+    "id": "task123",
+    "status": "active",
+    "title": "Implement login feature",
+    "creator": "2vxsx-fae",
+    "platform_id": "asana_task_123",
+    "description": "Implement user authentication",
+    "platform": "asana",
+    "created_at": 1234567890
+  }'
+```
+
+**Response:**
+```json
+{
+    "success": true,
+    "data": null,
+    "error": null
+}
+```
 
 ## Error Handling
 
@@ -266,6 +482,55 @@ enum UserIdentifier {
 }
 ```
 
+### GitHubConnection
+```rust
+struct GitHubConnection {
+    timestamp: u64,
+    token: String,
+    selected_repo: Option<String>
+}
+```
+
+### GitHubIssue
+```rust
+struct GitHubIssue {
+    id: String,
+    title: String,
+    body: String,
+    repository: String,
+    created_at: u64,
+    status: IssueStatus
+}
+
+enum IssueStatus {
+    Open,
+    Closed
+}
+```
+
+### AsanaConnection
+```rust
+struct AsanaConnection {
+    token: String,
+    workspace_id: String,
+    project_ids: Vec<(String, String)> // (project_id, project_name)
+}
+```
+
+### AsanaTask
+```rust
+struct AsanaTask {
+    id: String,
+    status: String,
+    title: String,
+    creator: Principal,
+    platform_id: String,
+    description: String,
+    platform: String,
+    created_at: u64
+}
+```
+
 ## Testing the API
 
 Here's a complete sequence of commands to test the API:
@@ -305,5 +570,54 @@ curl -X POST http://localhost:3000/slack/messages/U123456789 \
 curl http://localhost:3000/slack/messages/U123456789
 
 # 6. Generate a dashboard token
+curl -X POST http://localhost:3000/slack/token/U123456789
+
+# 7. Connect GitHub
+curl -X POST http://localhost:3000/slack/github/U123456789/connect \
+  -H "Content-Type: application/json" \
+  -d '{
+    "token": "your_github_token",
+    "selected_repo": null
+  }'
+
+# 8. Store GitHub issue
+curl -X POST http://localhost:3000/slack/github/U123456789/issues \
+  -H "Content-Type: application/json" \
+  -d '{
+    "id": "123",
+    "title": "Bug fix",
+    "body": "Fix the login issue",
+    "repository": "owner/repo",
+    "created_at": 1234567890,
+    "status": "Open"
+  }'
+
+# 9. Connect Asana
+curl -X POST http://localhost:3000/slack/asana/U123456789/connect \
+  -H "Content-Type: application/json" \
+  -d '{
+    "token": "your_asana_token",
+    "workspace_id": "workspace123",
+    "project_ids": [
+        ["project1", "Project One"],
+        ["project2", "Project Two"]
+    ]
+  }'
+
+# 10. Store Asana task
+curl -X POST http://localhost:3000/slack/asana/U123456789/tasks \
+  -H "Content-Type: application/json" \
+  -d '{
+    "id": "task123",
+    "status": "active",
+    "title": "Implement login feature",
+    "creator": "2vxsx-fae",
+    "platform_id": "asana_task_123",
+    "description": "Implement user authentication",
+    "platform": "asana",
+    "created_at": 1234567890
+  }'
+
+# 11. Generate dashboard token
 curl -X POST http://localhost:3000/slack/token/U123456789
 ``` 

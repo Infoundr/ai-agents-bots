@@ -74,6 +74,48 @@ pub enum UserIdentifier {
     DiscordId(String),
 }
 
+#[derive(Debug, Serialize, Deserialize, CandidType)]
+pub struct GitHubConnection {
+    pub timestamp: Option<u64>,
+    pub token: String,
+    pub selected_repo: Option<String>
+}
+
+#[derive(Debug, Serialize, Deserialize, CandidType)]
+pub enum IssueStatus {
+    Open,
+    Closed,
+}
+
+#[derive(Debug, Serialize, Deserialize, CandidType)]
+pub struct GitHubIssue {
+    pub id: String,
+    pub title: String,
+    pub body: String,
+    pub repository: String,
+    pub created_at: u64,
+    pub status: IssueStatus,
+}
+
+#[derive(Debug, Serialize, Deserialize, CandidType)]
+pub struct AsanaConnection {
+    pub token: String,
+    pub workspace_id: String,
+    pub project_ids: Vec<(String, String)>, // (project_id, project_name)
+}
+
+#[derive(Debug, Serialize, Deserialize, CandidType)]
+pub struct AsanaTask {
+    pub id: String,
+    pub status: String,
+    pub title: String,
+    pub creator: Principal,
+    pub platform_id: String,
+    pub description: String,
+    pub platform: String,
+    pub created_at: u64,
+}
+
 pub struct SlackClient {
     agent: Arc<Agent>,
     canister_id: Principal,
@@ -175,5 +217,123 @@ impl SlackClient {
             .map_err(|e| format!("Failed to decode token: {}", e))?;
 
         Ok(SlackResponse::success(token))
+    }
+
+    // GitHub Methods
+    pub async fn store_github_connection(&self, slack_id: String, token: String, selected_repo: Option<String>) -> Result<SlackResponse<()>, String> {
+        // First ensure user is registered
+        match self.ensure_user_registered(slack_id.clone()).await {
+            Ok(_) => {
+                let identifier = UserIdentifier::SlackId(slack_id);
+                let args = Encode!(&identifier, &token, &selected_repo)
+                    .map_err(|e| format!("Failed to encode arguments: {}", e))?;
+
+                match self.agent
+                    .update(&self.canister_id, "store_github_connection")
+                    .with_arg(args)
+                    .call_and_wait()
+                    .await
+                {
+                    Ok(_) => Ok(SlackResponse::success(())),
+                    Err(e) => Ok(SlackResponse::error(format!("Failed to store GitHub connection: {}", e))),
+                }
+            },
+            Err(e) => Ok(SlackResponse::error(format!("Failed to register user: {}", e))),
+        }
+    }
+
+    pub async fn store_github_issue(&self, slack_id: String, issue: GitHubIssue) -> Result<SlackResponse<()>, String> {
+        // First ensure user is registered
+        match self.ensure_user_registered(slack_id.clone()).await {
+            Ok(_) => {
+                let identifier = UserIdentifier::SlackId(slack_id);
+                let args = Encode!(&identifier, &issue)
+                    .map_err(|e| format!("Failed to encode arguments: {}", e))?;
+
+                match self.agent
+                    .update(&self.canister_id, "store_github_issue")
+                    .with_arg(args)
+                    .call_and_wait()
+                    .await
+                {
+                    Ok(_) => Ok(SlackResponse::success(())),
+                    Err(e) => Ok(SlackResponse::error(format!("Failed to store GitHub issue: {}", e))),
+                }
+            },
+            Err(e) => Ok(SlackResponse::error(format!("Failed to register user: {}", e))),
+        }
+    }
+
+    pub async fn update_github_selected_repo(&self, slack_id: String, repo_name: String) -> Result<SlackResponse<()>, String> {
+        // First ensure user is registered
+        match self.ensure_user_registered(slack_id.clone()).await {
+            Ok(_) => {
+                let identifier = UserIdentifier::SlackId(slack_id);
+                let args = Encode!(&identifier, &repo_name)
+                    .map_err(|e| format!("Failed to encode arguments: {}", e))?;
+
+                match self.agent
+                    .update(&self.canister_id, "update_github_selected_repo")
+                    .with_arg(args)
+                    .call_and_wait()
+                    .await
+                {
+                    Ok(_) => Ok(SlackResponse::success(())),
+                    Err(e) => Ok(SlackResponse::error(format!("Failed to update selected repo: {}", e))),
+                }
+            },
+            Err(e) => Ok(SlackResponse::error(format!("Failed to register user: {}", e))),
+        }
+    }
+
+    // Project Management Methods
+    pub async fn store_asana_connection(&self, slack_id: String, token: String, workspace_id: String, project_ids: Vec<(String, String)>) -> Result<SlackResponse<()>, String> {
+        // First ensure user is registered
+        match self.ensure_user_registered(slack_id.clone()).await {
+            Ok(_) => {
+                let identifier = UserIdentifier::SlackId(slack_id);
+                let connection = AsanaConnection {
+                    token,
+                    workspace_id,
+                    project_ids,
+                };
+                
+                let args = Encode!(&identifier, &connection)
+                    .map_err(|e| format!("Failed to encode arguments: {}", e))?;
+
+                match self.agent
+                    .update(&self.canister_id, "store_asana_connection")
+                    .with_arg(args)
+                    .call_and_wait()
+                    .await
+                {
+                    Ok(_) => Ok(SlackResponse::success(())),
+                    Err(e) => Ok(SlackResponse::error(format!("Failed to store Asana connection: {}", e))),
+                }
+            },
+            Err(e) => Ok(SlackResponse::error(format!("Failed to register user: {}", e))),
+        }
+    }
+
+    pub async fn store_asana_task(&self, slack_id: String, task: AsanaTask) -> Result<SlackResponse<()>, String> {
+        // First ensure user is registered
+        match self.ensure_user_registered(slack_id.clone()).await {
+            Ok(_) => {
+                let identifier = UserIdentifier::SlackId(slack_id);
+                let args = Encode!(&identifier, &task)
+                    .map_err(|e| format!("Failed to encode arguments: {}", e))?;
+
+                match self.agent
+                    .update(&self.canister_id, "store_asana_task")
+                    .with_arg(args)
+                    .call_and_wait()
+                    .await
+                {
+                    Ok(_) => Ok(SlackResponse::success(())),
+                    Err(e) => Ok(SlackResponse::error(format!("Failed to store Asana task: {}", e))),
+                }
+            },
+            Err(e) => Ok(SlackResponse::error(format!("Failed to register user: {}", e))),
+        }
     }
 } 
