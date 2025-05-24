@@ -4,21 +4,26 @@ use ic_agent::Agent;
 use candid::Principal;
 use candid::{Encode, Decode};
 use axum::{
-    routing::get,
+    routing::{get, post},
     Router,
     Json,
-    extract::State,
+    extract::{State, Path},
 };
 use std::sync::Arc;
-use serde::{Serialize, Deserialize};
+use serde::Serialize;
 use std::net::SocketAddr;
 
-const CANISTER_ID: &str = "g7ko2-fyaaa-aaaam-qdlea-cai";
+mod slack;
+use slack::{SlackClient, SlackUser, SlackMessage, SlackResponse};
+
+// const CANISTER_ID: &str = "g7ko2-fyaaa-aaaam-qdlea-cai"; // mainnet
+const CANISTER_ID: &str = "4ey3y-zaaaa-aaaab-qac6q-cai"; // testnet
 
 #[derive(Clone)]
 struct AppState {
     agent: Arc<Agent>,
     canister_id: Principal,
+    slack_client: Arc<SlackClient>,
 }
 
 #[derive(Serialize)]
@@ -53,6 +58,58 @@ async fn get_admins(State(state): State<AppState>) -> Result<Json<AdminResponse>
     }))
 }
 
+// Slack endpoints
+async fn ensure_slack_user(
+    State(state): State<AppState>,
+    Path(slack_id): Path<String>,
+) -> Json<SlackResponse<()>> {
+    match state.slack_client.ensure_user_registered(slack_id).await {
+        Ok(response) => Json(response),
+        Err(e) => Json(SlackResponse::error(e)),
+    }
+}
+
+async fn get_slack_user(
+    State(state): State<AppState>,
+    Path(slack_id): Path<String>,
+) -> Json<SlackResponse<Option<SlackUser>>> {
+    match state.slack_client.get_user(slack_id).await {
+        Ok(response) => Json(response),
+        Err(e) => Json(SlackResponse::error(e)),
+    }
+}
+
+async fn get_slack_messages(
+    State(state): State<AppState>,
+    Path(slack_id): Path<String>,
+) -> Json<SlackResponse<Vec<SlackMessage>>> {
+    match state.slack_client.get_messages(slack_id).await {
+        Ok(response) => Json(response),
+        Err(e) => Json(SlackResponse::error(e)),
+    }
+}
+
+async fn store_slack_message(
+    State(state): State<AppState>,
+    Path(slack_id): Path<String>,
+    Json(message): Json<SlackMessage>,
+) -> Json<SlackResponse<()>> {
+    match state.slack_client.store_chat_message(slack_id, message).await {
+        Ok(response) => Json(response),
+        Err(e) => Json(SlackResponse::error(e)),
+    }
+}
+
+async fn generate_slack_token(
+    State(state): State<AppState>,
+    Path(slack_id): Path<String>,
+) -> Json<SlackResponse<String>> {
+    match state.slack_client.generate_dashboard_token(slack_id).await {
+        Ok(response) => Json(response),
+        Err(e) => Json(SlackResponse::error(e)),
+    }
+}
+
 #[tokio::main]
 async fn main() -> Result<()> {
     // Initialize ICP agent
@@ -60,15 +117,23 @@ async fn main() -> Result<()> {
     let agent = create_agent(url, true).await?;
     let canister_id = Principal::from_text(CANISTER_ID)?;
     
+    // Create Slack client
+    let slack_client = Arc::new(SlackClient::new(Arc::new(agent.clone()), canister_id));
+    
     // Create shared state
     let state = AppState {
         agent: Arc::new(agent),
         canister_id,
+        slack_client,
     };
     
-    // Build our application with a route
+    // Build our application with routes
     let app = Router::new()
         .route("/admins", get(get_admins))
+        .route("/slack/users/:slack_id", get(get_slack_user))
+        .route("/slack/users/:slack_id/register", post(ensure_slack_user))
+        .route("/slack/messages/:slack_id", get(get_slack_messages).post(store_slack_message))
+        .route("/slack/token/:slack_id", post(generate_slack_token))
         .with_state(state);
     
     // Run it with hyper on localhost:3000
