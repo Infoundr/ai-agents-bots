@@ -107,13 +107,13 @@ pub struct AsanaConnection {
 #[derive(Debug, Serialize, Deserialize, CandidType)]
 pub struct AsanaTask {
     pub id: String,
-    pub status: String,
     pub title: String,
-    pub creator: Principal,
-    pub platform_id: String,
     pub description: String,
-    pub platform: String,
+    pub status: String,
     pub created_at: u64,
+    pub platform: String,    // "asana" or "github"
+    pub platform_id: String, // ID of the task in the respective platform
+    pub creator: Principal,
 }
 
 pub struct SlackClient {
@@ -292,13 +292,7 @@ impl SlackClient {
         match self.ensure_user_registered(slack_id.clone()).await {
             Ok(_) => {
                 let identifier = UserIdentifier::SlackId(slack_id);
-                let connection = AsanaConnection {
-                    token,
-                    workspace_id,
-                    project_ids,
-                };
-                
-                let args = Encode!(&identifier, &connection)
+                let args = Encode!(&identifier, &token, &workspace_id, &project_ids)
                     .map_err(|e| format!("Failed to encode arguments: {}", e))?;
 
                 match self.agent
