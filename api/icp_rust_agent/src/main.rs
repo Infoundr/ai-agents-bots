@@ -10,7 +10,7 @@ use axum::{
     extract::{State, Path},
     http::{StatusCode, HeaderMap, Request},
     middleware::{self, Next},
-    response::Response,
+    response::{Response, IntoResponse},
 };
 use std::sync::Arc;
 use serde::Serialize;
@@ -25,8 +25,8 @@ use slack::{
     GitHubConnection, GitHubIssue, AsanaConnection, AsanaTask
 };
 
-const CANISTER_ID: &str = "g7ko2-fyaaa-aaaam-qdlea-cai"; // mainnet
-// const CANISTER_ID: &str = "x5pps-pqaaa-aaaab-qadbq-cai"; // testnet
+// const CANISTER_ID: &str = "g7ko2-fyaaa-aaaam-qdlea-cai"; // mainnet
+const CANISTER_ID: &str = "x5pps-pqaaa-aaaab-qadbq-cai"; // testnet
 
 #[derive(Clone)]
 struct AppState {
@@ -41,22 +41,39 @@ struct AdminResponse {
     admins: Vec<String>,
 }
 
+#[derive(Serialize)]
+struct ErrorResponse {
+    success: bool,
+    data: Option<()>,
+    error: String,
+}
+
 // Add this middleware function
 async fn auth_middleware(
     State(state): State<Arc<AppState>>,
     headers: HeaderMap,
     request: Request<axum::body::Body>,
     next: Next,
-) -> Result<Response, StatusCode> {
+) -> Result<Response, impl IntoResponse> {
     // Get the API key from the header
     let api_key = headers
         .get("x-api-key")
         .and_then(|value| value.to_str().ok())
-        .ok_or(StatusCode::UNAUTHORIZED)?;
+        .ok_or_else(|| {
+            Json(ErrorResponse {
+                success: false,
+                data: None,
+                error: "Missing API key".to_string(),
+            }).into_response()
+        })?;
 
     // Verify the API key
     if api_key != state.api_key {
-        return Err(StatusCode::UNAUTHORIZED);
+        return Err(Json(ErrorResponse {
+            success: false,
+            data: None,
+            error: "Invalid API key".to_string(),
+        }).into_response());
     }
 
     // If authentication passes, proceed with the request
