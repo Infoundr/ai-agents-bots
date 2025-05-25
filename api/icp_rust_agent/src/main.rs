@@ -8,10 +8,16 @@ use axum::{
     Router,
     Json,
     extract::{State, Path},
+    http::{StatusCode, HeaderMap, Request},
+    middleware::{self, Next},
+    response::Response,
 };
 use std::sync::Arc;
 use serde::Serialize;
 use std::net::SocketAddr;
+use tower_http::cors::CorsLayer;
+use tower_http::trace::TraceLayer;
+use dotenv::dotenv;
 
 mod slack;
 use slack::{
@@ -20,18 +26,41 @@ use slack::{
 };
 
 const CANISTER_ID: &str = "g7ko2-fyaaa-aaaam-qdlea-cai"; // mainnet
-// const CANISTER_ID: &str = "4r7kv-yiaaa-aaaab-qac5a-cai"; // testnet
+// const CANISTER_ID: &str = "x5pps-pqaaa-aaaab-qadbq-cai"; // testnet
 
 #[derive(Clone)]
 struct AppState {
     agent: Arc<Agent>,
     canister_id: Principal,
     slack_client: Arc<SlackClient>,
+    api_key: String,
 }
 
 #[derive(Serialize)]
 struct AdminResponse {
     admins: Vec<String>,
+}
+
+// Add this middleware function
+async fn auth_middleware(
+    State(state): State<Arc<AppState>>,
+    headers: HeaderMap,
+    request: Request<axum::body::Body>,
+    next: Next,
+) -> Result<Response, StatusCode> {
+    // Get the API key from the header
+    let api_key = headers
+        .get("x-api-key")
+        .and_then(|value| value.to_str().ok())
+        .ok_or(StatusCode::UNAUTHORIZED)?;
+
+    // Verify the API key
+    if api_key != state.api_key {
+        return Err(StatusCode::UNAUTHORIZED);
+    }
+
+    // If authentication passes, proceed with the request
+    Ok(next.run(request).await)
 }
 
 // Initializing the agent
@@ -191,7 +220,10 @@ async fn store_asana_task(
 }
 
 #[tokio::main]
-async fn main() -> Result<()> {
+async fn main() -> Result<(), Box<dyn std::error::Error>> {
+    // Load .env file
+    dotenv().ok();
+    
     // Initialize ICP agent
     let url = Url::parse("https://ic0.app")?;
     let agent = create_agent(url, true).await?;
@@ -200,11 +232,16 @@ async fn main() -> Result<()> {
     // Create Slack client
     let slack_client = Arc::new(SlackClient::new(Arc::new(agent.clone()), canister_id));
     
-    // Create shared state
-    let state = AppState {
+    // Get API key from environment variable
+    let api_key = std::env::var("API_KEY")
+        .expect("API_KEY must be set in .env file");
+
+    // Create app state with API key
+    let app_state = AppState {
         agent: Arc::new(agent),
         canister_id,
         slack_client,
+        api_key,
     };
     
     // Build our application with routes
@@ -219,7 +256,13 @@ async fn main() -> Result<()> {
         .route("/slack/github/:slack_id/repo", post(update_github_repo))
         .route("/slack/asana/:slack_id/connect", post(store_asana_connection))
         .route("/slack/asana/:slack_id/tasks", post(store_asana_task))
-        .with_state(state);
+        .route_layer(middleware::from_fn_with_state(
+            Arc::new(app_state.clone()),
+            auth_middleware,
+        ))
+        .layer(CorsLayer::permissive())
+        .layer(TraceLayer::new_for_http())
+        .with_state(app_state);
     
     // Run it with hyper on localhost:3000
     let addr = SocketAddr::from(([0, 0, 0, 0], 3000));

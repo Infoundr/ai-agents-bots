@@ -7,22 +7,44 @@ This API provides endpoints for interacting with the Internet Computer Protocol 
 http://localhost:3000
 ```
 
+## Authentication
+
+All API endpoints require authentication using an API key. Include the API key in the `x-api-key` header with every request:
+
+```bash
+curl -H "x-api-key: your-api-key-here" ...
+```
+
+To set up your API key:
+1. Generate a secure API key:
+```bash
+openssl rand -hex 32
+```
+
+2. Create a `.env` file in the project root with:
+```
+API_KEY=your-generated-api-key
+```
+
 ## Quick Examples
 
 ### Register a new Slack user
 ```bash
-curl -X POST http://localhost:3000/slack/users/U123456789/register
+curl -X POST http://localhost:3000/slack/users/U123456789/register \
+  -H "x-api-key: your-api-key-here"
 ```
 
 ### Get user information
 ```bash
-curl http://localhost:3000/slack/users/U123456789
+curl http://localhost:3000/slack/users/U123456789 \
+  -H "x-api-key: your-api-key-here"
 ```
 
 ### Store a chat message
 ```bash
 curl -X POST http://localhost:3000/slack/messages/U123456789 \
   -H "Content-Type: application/json" \
+  -H "x-api-key: your-api-key-here" \
   -d '{
     "id": "2vxsx-fae",
     "role": "User",
@@ -35,12 +57,26 @@ curl -X POST http://localhost:3000/slack/messages/U123456789 \
 
 ### Get all messages for a user
 ```bash
-curl http://localhost:3000/slack/messages/U123456789
+curl http://localhost:3000/slack/messages/U123456789 \
+  -H "x-api-key: your-api-key-here"
 ```
 
 ### Generate a dashboard token
 ```bash
-curl -X POST http://localhost:3000/slack/token/U123456789
+curl -X POST http://localhost:3000/slack/token/U123456789 \
+  -H "x-api-key: your-api-key-here"
+```
+
+## Error Responses
+
+### Authentication Error
+If the API key is missing or invalid, you'll receive a 401 Unauthorized response:
+```json
+{
+    "success": false,
+    "data": null,
+    "error": "Unauthorized"
+}
 ```
 
 ## Slack Integration
@@ -57,10 +93,14 @@ Registers a new Slack user in the system.
 **Path Parameters:**
 - `slack_id` (string): The Slack user ID
 
+**Headers:**
+- `x-api-key`: Your API key
+
 **Example:**
 ```bash
 # Register a new user with ID U123456789
-curl -X POST http://localhost:3000/slack/users/U123456789/register
+curl -X POST http://localhost:3000/slack/users/U123456789/register \
+  -H "x-api-key: your-api-key-here"
 ```
 
 **Response:**
@@ -82,10 +122,14 @@ Retrieves information about a registered Slack user.
 **Path Parameters:**
 - `slack_id` (string): The Slack user ID
 
+**Headers:**
+- `x-api-key`: Your API key
+
 **Example:**
 ```bash
 # Get information for user U123456789
-curl http://localhost:3000/slack/users/U123456789
+curl http://localhost:3000/slack/users/U123456789 \
+  -H "x-api-key: your-api-key-here"
 ```
 
 **Response:**
@@ -114,10 +158,14 @@ Retrieves all chat messages for a Slack user.
 **Path Parameters:**
 - `slack_id` (string): The Slack user ID
 
+**Headers:**
+- `x-api-key`: Your API key
+
 **Example:**
 ```bash
 # Get all messages for user U123456789
-curl http://localhost:3000/slack/messages/U123456789
+curl http://localhost:3000/slack/messages/U123456789 \
+  -H "x-api-key: your-api-key-here"
 ```
 
 **Response:**
@@ -143,16 +191,21 @@ curl http://localhost:3000/slack/messages/U123456789
 POST /slack/messages/:slack_id
 ```
 
-Stores a chat message in the system. The message will be associated with the user's principal ID, which is derived from their Slack ID if not already set.
+Stores a chat message in the system.
 
 **Path Parameters:**
 - `slack_id` (string): The Slack user ID
+
+**Headers:**
+- `Content-Type: application/json`
+- `x-api-key`: Your API key
 
 **Example:**
 ```bash
 # Store a user message
 curl -X POST http://localhost:3000/slack/messages/U123456789 \
   -H "Content-Type: application/json" \
+  -H "x-api-key: your-api-key-here" \
   -d '{
     "id": "2vxsx-fae",
     "role": "User",
@@ -165,6 +218,7 @@ curl -X POST http://localhost:3000/slack/messages/U123456789 \
 # Store an assistant message
 curl -X POST http://localhost:3000/slack/messages/U123456789 \
   -H "Content-Type: application/json" \
+  -H "x-api-key: your-api-key-here" \
   -d '{
     "id": "2vxsx-fae",
     "role": "Assistant",
@@ -196,10 +250,14 @@ Generates a dashboard token for a Slack user.
 **Path Parameters:**
 - `slack_id` (string): The Slack user ID
 
+**Headers:**
+- `x-api-key`: Your API key
+
 **Example:**
 ```bash
 # Generate a token for user U123456789
-curl -X POST http://localhost:3000/slack/token/U123456789
+curl -X POST http://localhost:3000/slack/token/U123456789 \
+  -H "x-api-key: your-api-key-here"
 ```
 
 **Response:**
@@ -225,6 +283,10 @@ Stores a GitHub connection for a Slack user.
 **Path Parameters:**
 - `slack_id` (string): The Slack user ID
 
+**Headers:**
+- `Content-Type: application/json`
+- `x-api-key`: Your API key
+
 **Request Body:**
 ```json
 {
@@ -237,6 +299,7 @@ Stores a GitHub connection for a Slack user.
 ```bash
 curl -X POST http://localhost:3000/slack/github/U123456789/connect \
   -H "Content-Type: application/json" \
+  -H "x-api-key: your-api-key-here" \
   -d '{
     "token": "your_github_token",
     "selected_repo": null
@@ -262,6 +325,10 @@ Updates the selected GitHub repository for a Slack user.
 **Path Parameters:**
 - `slack_id` (string): The Slack user ID
 
+**Headers:**
+- `Content-Type: application/json`
+- `x-api-key`: Your API key
+
 **Request Body:**
 ```json
 "owner/repo"
@@ -271,6 +338,7 @@ Updates the selected GitHub repository for a Slack user.
 ```bash
 curl -X POST http://localhost:3000/slack/github/U123456789/repo \
   -H "Content-Type: application/json" \
+  -H "x-api-key: your-api-key-here" \
   -d '"owner/repo"'
 ```
 
@@ -295,6 +363,10 @@ Stores a GitHub issue for a Slack user.
 **Path Parameters:**
 - `slack_id` (string): The Slack user ID
 
+**Headers:**
+- `Content-Type: application/json`
+- `x-api-key`: Your API key
+
 **Request Body:**
 ```json
 {
@@ -311,6 +383,7 @@ Stores a GitHub issue for a Slack user.
 ```bash
 curl -X POST http://localhost:3000/slack/github/U123456789/issues \
   -H "Content-Type: application/json" \
+  -H "x-api-key: your-api-key-here" \
   -d '{
     "id": "123",
     "title": "Bug fix",
@@ -344,6 +417,10 @@ Stores an Asana connection for a Slack user.
 **Path Parameters:**
 - `slack_id` (string): The Slack user ID
 
+**Headers:**
+- `Content-Type: application/json`
+- `x-api-key`: Your API key
+
 **Request Body:**
 ```json
 {
@@ -360,6 +437,7 @@ Stores an Asana connection for a Slack user.
 ```bash
 curl -X POST http://localhost:3000/slack/asana/U123456789/connect \
   -H "Content-Type: application/json" \
+  -H "x-api-key: your-api-key-here" \
   -d '{
     "token": "your_asana_token",
     "workspace_id": "workspace123",
@@ -391,6 +469,10 @@ Stores an Asana task for a Slack user.
 **Path Parameters:**
 - `slack_id` (string): The Slack user ID
 
+**Headers:**
+- `Content-Type: application/json`
+- `x-api-key`: Your API key
+
 **Request Body:**
 ```json
 {
@@ -409,6 +491,7 @@ Stores an Asana task for a Slack user.
 ```bash
 curl -X POST http://localhost:3000/slack/asana/U123456789/tasks \
   -H "Content-Type: application/json" \
+  -H "x-api-key: your-api-key-here" \
   -d '{
     "id": "task123",
     "status": "active",
@@ -536,15 +619,18 @@ struct AsanaTask {
 Here's a complete sequence of commands to test the API:
 
 ```bash
-# 1. Register a new user (DO NOT USE - done automatically in the logic, code is only for testing purposes)
-curl -X POST http://localhost:3000/slack/users/U123456789/register
+# 1. Register a new user
+curl -X POST http://localhost:3000/slack/users/U123456789/register \
+  -H "x-api-key: your-api-key-here"
 
-# 2. Verify user registration (DO NOT USE - done automatically in the logic, code is only for testing purposes)
-curl http://localhost:3000/slack/users/U123456789
+# 2. Verify user registration
+curl http://localhost:3000/slack/users/U123456789 \
+  -H "x-api-key: your-api-key-here"
 
 # 3. Store a user message
 curl -X POST http://localhost:3000/slack/messages/U123456789 \
   -H "Content-Type: application/json" \
+  -H "x-api-key: your-api-key-here" \
   -d '{
     "id": "2vxsx-fae",
     "role": "User",
@@ -557,6 +643,7 @@ curl -X POST http://localhost:3000/slack/messages/U123456789 \
 # 4. Store an assistant response
 curl -X POST http://localhost:3000/slack/messages/U123456789 \
   -H "Content-Type: application/json" \
+  -H "x-api-key: your-api-key-here" \
   -d '{
     "id": "2vxsx-fae",
     "role": "Assistant",
@@ -567,14 +654,17 @@ curl -X POST http://localhost:3000/slack/messages/U123456789 \
   }'
 
 # 5. Retrieve all messages
-curl http://localhost:3000/slack/messages/U123456789
+curl http://localhost:3000/slack/messages/U123456789 \
+  -H "x-api-key: your-api-key-here"
 
 # 6. Generate a dashboard token
-curl -X POST http://localhost:3000/slack/token/U123456789
+curl -X POST http://localhost:3000/slack/token/U123456789 \
+  -H "x-api-key: your-api-key-here"
 
 # 7. Connect GitHub
 curl -X POST http://localhost:3000/slack/github/U123456789/connect \
   -H "Content-Type: application/json" \
+  -H "x-api-key: your-api-key-here" \
   -d '{
     "token": "your_github_token",
     "selected_repo": null
@@ -583,6 +673,7 @@ curl -X POST http://localhost:3000/slack/github/U123456789/connect \
 # 8. Store GitHub issue
 curl -X POST http://localhost:3000/slack/github/U123456789/issues \
   -H "Content-Type: application/json" \
+  -H "x-api-key: your-api-key-here" \
   -d '{
     "id": "123",
     "title": "Bug fix",
@@ -595,6 +686,7 @@ curl -X POST http://localhost:3000/slack/github/U123456789/issues \
 # 9. Connect Asana
 curl -X POST http://localhost:3000/slack/asana/U123456789/connect \
   -H "Content-Type: application/json" \
+  -H "x-api-key: your-api-key-here" \
   -d '{
     "token": "your_asana_token",
     "workspace_id": "workspace123",
@@ -607,6 +699,7 @@ curl -X POST http://localhost:3000/slack/asana/U123456789/connect \
 # 10. Store Asana task
 curl -X POST http://localhost:3000/slack/asana/U123456789/tasks \
   -H "Content-Type: application/json" \
+  -H "x-api-key: your-api-key-here" \
   -d '{
     "id": "task123",
     "status": "active",
@@ -617,7 +710,4 @@ curl -X POST http://localhost:3000/slack/asana/U123456789/tasks \
     "platform": "asana",
     "created_at": 1234567890
   }'
-
-# 11. Generate dashboard token
-curl -X POST http://localhost:3000/slack/token/U123456789
 ``` 
