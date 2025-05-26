@@ -44,23 +44,23 @@ ai-agents-bots/
 The system consists of three main communication services and two backend services:
 
 ### Communication Services
-1. **Slack Bot** (`/slack`)
+1. **[Slack Bot](./slack/)** (`/slack`)
    - Handles Slack workspace integration
    - Processes Slack-specific commands and events
    - Forwards requests to the main API
 
-2. **Discord Bot** (`/discord-bot`)
+2. **[Discord Bot](./discord-bot/)** (`/discord-bot`)
    - Manages Discord server integration
    - Processes Discord-specific commands
    - Forwards requests to the main API
 
-3. **Open Chat** (`/open-chat`)
+3. **[Open Chat](./open-chat/)** (`/open-chat`)
    - Provides a standalone chat interface
    - Built in Rust for high performance
    - Forwards requests to the main API
 
 ### Backend Services
-1. **Main API** (`/api`)
+1. **[Main API](./api/)** (`/api`)
    - Central service that handles all bot logic
    - Provides endpoints for:
      - AI Assistant bots
@@ -68,7 +68,7 @@ The system consists of three main communication services and two backend service
      - Project management
    - Acts as a unified interface for all communication services
 
-2. **Storage API** (`/api/icp_rust_agent`)
+2. **[Storage API](./api/icp_rust_agent/)** (`/api/icp_rust_agent`)
    - Rust-based storage service using Internet Computer Protocol (ICP)
    - Handles all data persistence
    - Provides a secure and decentralized storage solution
@@ -141,14 +141,25 @@ sequenceDiagram
   - `/api/bot_info` - List available bots
   - `/api/process_command` - Process bot commands
 
+Check out the complete documentation [here](./api/API.md)
+
 ### Storage API Service
 - **URL**: http://154.38.174.112:3000
 - **Purpose**: Data persistence and storage operations
+- **Endpoints**:
+  - `/slack/users/:slack_id/register` - Register new Slack user
+  - `/slack/users/:slack_id` - Get Slack user information
+  - `/slack/messages/:slack_id` - Get/Store chat messages for Slack user
+  - `/discord/users/:discord_id/register` - Register new Discord user
+  - `/discord/users/:discord_id` - Get Discord user information
+  - `/discord/messages/:discord_id` - Get/Store chat messages for Discord user
+  - `/openchat/users/:openchat_id/register` - Register new OpenChat user
+  - `/openchat/users/:openchat_id` - Get OpenChat user information
+  - `/openchat/messages/:openchat_id` - Get/Store chat messages for OpenChat user
 
-### Integration Documentation
-- [Slack Integration Guide](docs/slack-integration.md)
-- [Discord Integration Guide](docs/discord-integration.md)
-- [Open Chat Integration Guide](docs/open-chat-integration.md)
+**Note**: All endpoints require authentication using an API key in the `x-api-key` header.
+
+Check out the full documentation [here](./api/icp_rust_agent/API.md)
 
 ## Setup
 
