@@ -8,9 +8,19 @@ A modular, multi-bot assistant platform for startups, supporting Open Chat, Slac
 ai-agents-bots/
 │
 ├── api/                # Main API service (Flask/FastAPI)
+|   ├── icp_rust_agent/ # Rust-based API service for storage and data management
+|   |   ├── src/       # Rust source code
+|   |   ├── Cargo.toml # Rust dependencies and project configuration
+|   |   ├── API.md     # API documentation and specifications
+|   |   └── target/    # Build artifacts
 │   ├── main_api.py
 │   ├── requirements.txt
 │   └── tokens/
+│
+├── open-chat/         # Open Chat service (Rust)
+│   ├── src/          # Source code
+│   ├── Cargo.toml    # Rust dependencies
+│   └── config.toml   # Configuration
 │
 ├── slack/              # Slack integration service
 │   ├── slack_bot.py
