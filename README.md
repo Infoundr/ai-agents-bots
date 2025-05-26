@@ -39,6 +39,117 @@ ai-agents-bots/
 └── requirements.txt    # (optional: root-level for dev tools)
 ```
 
+## Architecture
+
+The system consists of three main communication services and two backend services:
+
+### Communication Services
+1. **Slack Bot** (`/slack`)
+   - Handles Slack workspace integration
+   - Processes Slack-specific commands and events
+   - Forwards requests to the main API
+
+2. **Discord Bot** (`/discord-bot`)
+   - Manages Discord server integration
+   - Processes Discord-specific commands
+   - Forwards requests to the main API
+
+3. **Open Chat** (`/open-chat`)
+   - Provides a standalone chat interface
+   - Built in Rust for high performance
+   - Forwards requests to the main API
+
+### Backend Services
+1. **Main API** (`/api`)
+   - Central service that handles all bot logic
+   - Provides endpoints for:
+     - AI Assistant bots
+     - GitHub integration
+     - Project management
+   - Acts as a unified interface for all communication services
+
+2. **Storage API** (`/api/icp_rust_agent`)
+   - Rust-based storage service using Internet Computer Protocol (ICP)
+   - Handles all data persistence
+   - Provides a secure and decentralized storage solution
+
+### Communication Flows
+
+#### Basic Command Flow
+```mermaid
+sequenceDiagram
+    participant U as User
+    participant C as Communication Service
+    participant M as Main API
+    participant S as Storage API
+
+    U->>C: Send command
+    Note over C: Validate & format request
+    C->>M: Forward command
+    Note over M: Process bot logic
+    M->>S: Store/retrieve data
+    S->>M: Return data
+    M->>C: Send response
+    C->>U: Display formatted response
+```
+
+#### Bot Interaction Flow
+```mermaid
+sequenceDiagram
+    participant U as User
+    participant C as Communication Service
+    participant M as Main API
+    participant B as Bot Logic
+    participant S as Storage API
+
+    U->>C: /ask_bot command
+    C->>M: Forward to appropriate bot
+    M->>B: Process with bot logic
+    B->>S: Store conversation
+    S->>B: Confirm storage
+    B->>M: Return bot response
+    M->>C: Format response
+    C->>U: Display bot message
+```
+
+#### Integration Flow
+```mermaid
+sequenceDiagram
+    participant U as User
+    participant C as Communication Service
+    participant M as Main API
+    participant I as Integration (GitHub/Asana)
+    participant S as Storage API
+
+    U->>C: Integration command
+    C->>M: Forward request
+    M->>S: Get credentials
+    S->>M: Return stored credentials
+    M->>I: Execute integration action
+    I->>M: Return result
+    M->>S: Store result
+    M->>C: Format response
+    C->>U: Display integration result
+```
+
+## Production URLs
+
+### Main API Service
+- **URL**: http://154.38.174.112:5005
+- **Endpoints**:
+  - `/api/health` - Health check endpoint
+  - `/api/bot_info` - List available bots
+  - `/api/process_command` - Process bot commands
+
+### Storage API Service
+- **URL**: http://154.38.174.112:3000
+- **Purpose**: Data persistence and storage operations
+
+### Integration Documentation
+- [Slack Integration Guide](docs/slack-integration.md)
+- [Discord Integration Guide](docs/discord-integration.md)
+- [Open Chat Integration Guide](docs/open-chat-integration.md)
+
 ## Setup
 
 1. **Clone the repository:**
