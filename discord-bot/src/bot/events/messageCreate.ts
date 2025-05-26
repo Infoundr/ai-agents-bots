@@ -1,5 +1,5 @@
 import { Client, Message } from 'discord.js';
-import { BOTS } from '../../services/agent-bots';
+import { BOTS } from '../../services/botService';
 import { logger } from '../../utils/logger';
 
 const conversationHistories = new Map();
