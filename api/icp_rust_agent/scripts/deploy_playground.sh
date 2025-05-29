@@ -5,10 +5,14 @@ GREEN='\033[0;32m'
 YELLOW='\033[1;33m'
 NC='\033[0m' # No Color
 
+# Get the directory where the script is located
+SCRIPT_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
+PROJECT_ROOT="$(dirname "$SCRIPT_DIR")"
+
 echo -e "${GREEN}🚀 Starting playground deployment for storage API...${NC}"
 
 # Check if we're in the correct directory
-if [ ! -f "Cargo.toml" ]; then
+if [ ! -f "$PROJECT_ROOT/Cargo.toml" ]; then
     echo -e "${YELLOW}❌ Please run this script from the icp_rust_agent directory${NC}"
     exit 1
 fi
@@ -39,10 +43,10 @@ cd - > /dev/null
 echo -e "${GREEN}📝 Updating canister ID in main.rs...${NC}"
 
 # Create a backup of the original file
-cp src/main.rs src/main.rs.bak
+cp "$PROJECT_ROOT/src/main.rs" "$PROJECT_ROOT/src/main.rs.bak"
 
 # Replace only the canister ID value, preserving the rest of the line structure
-sed -i '' -e "s/\"[a-z0-9-]*\"; \/\/ testnet/\"$CANISTER_ID\"; \/\/ testnet/" src/main.rs
+sed -i '' -e "s/\"[a-z0-9-]*\"; \/\/ testnet/\"$CANISTER_ID\"; \/\/ testnet/" "$PROJECT_ROOT/src/main.rs"
 
 # Clean up
 echo -e "${GREEN}🧹 Cleaning up temporary files...${NC}"
