@@ -33,9 +33,18 @@ All API endpoints require authentication using an API key. Include the API key i
 
 ### How to interact with the API
 
+#### Common Parameters
+
+**Path Parameters:**
+- `slack_id` (string): The Slack user ID (e.g., "U123456789")
+
+**Headers:**
+- `Content-Type: application/json`
+- `x-api-key: your-api-key-here`
+
 #### Register a new Slack user
 
-#### Step 1: Store a chat message
+#### Step 1: Store a chat message (Or Assistant Activity)
 When a user sends a request from the agent bots, this is how we're storing the chat message in the backend canister
 
 Once the message is received, this is the request you'll run to store the message. 
@@ -51,6 +60,18 @@ curl -X POST http://localhost:3000/slack/messages/U123456789 \
     "timestamp": 1234567890,
     "bot_name": "Benny"
   }'
+```
+
+**Request Body:**
+```json
+{
+    "id": "2vxsx-fae",  
+    "role": "User", 
+    "content": "Hello!", 
+    "question_asked": null,
+    "timestamp": 1234567890,
+    "bot_name": "Benny"
+}
 ```
 
 Where: 
@@ -80,6 +101,74 @@ curl http://localhost:3000/slack/messages/U123456789 \
   -H "x-api-key: your-api-key-here"
 ```
 
+#### Step 2: Store GitHub activity:
+The first step is to store the user's github token connection
+```bash
+curl -X POST http://localhost:3000/slack/github/U123456789/connect \
+  -H "Content-Type: application/json" \
+  -H "x-api-key: your-api-key-here" \
+  -d '{
+    "token": "your_github_token",
+    "selected_repo": null
+  }'
+```
+
+The second step is to store the github repository for the user: 
+```bash
+curl -X POST http://154.38.174.112:3000/slack/github/U123456789/repo \
+  -H "Content-Type: application/json" \
+  -H "x-api-key: your-api-key-here" \
+  -d '"owner/repo"'
+```
+
+The third step is to store a github issue for the user
+```bash
+curl -X POST http://154.38.174.112:3000/slack/github/U123456789/issues \
+  -H "Content-Type: application/json" \
+  -H "x-api-key: your-api-key-here" \
+  -d '{
+    "id": "123",
+    "title": "Bug fix",
+    "body": "Fix the login issue",
+    "repository": "owner/repo",
+    "created_at": 1234567890,
+    "status": "Open"
+  }'
+```
+
+#### Step 3: Storing project management activity:
+First thing is to store the user's asana connection: 
+```bash
+curl -X POST http://154.38.174.112:3000/slack/asana/U123456789/connect \
+  -H "Content-Type: application/json" \
+  -H "x-api-key: your-api-key-here" \
+  -d '{
+    "token": "your_asana_token",
+    "workspace_id": "workspace123",
+    "project_ids": [
+        ["project1", "Project One"],
+        ["project2", "Project Two"]
+    ]
+  }'
+``` 
+
+The second step is to store the task that has been created through ASANA
+```bash
+curl -X POST http://154.38.174.112:3000/slack/asana/U123456789/tasks \
+  -H "Content-Type: application/json" \
+  -H "x-api-key: your-api-key-here" \
+  -d '{
+    "id": "task123",
+    "status": "active",
+    "title": "Implement login feature",
+    "creator": "2vxsx-fae",
+    "platform_id": "asana_task_123",
+    "description": "Implement user authentication",
+    "platform": "asana",
+    "created_at": 1234567890
+  }'
+```
+
 ### Error Responses
 
 #### Authentication Error
@@ -92,7 +181,16 @@ If the API key is missing or invalid, you'll receive a response like this:
 }
 ```
 
-### Token Management
+If it's any other error, the ``success`` field will be false 
+```json 
+{
+    "success": false,
+    "data": null,
+    "error": "..." # Error message displayed here
+}
+```
+
+<!-- ### Token Management
 
 #### Generate Dashboard Token
 ```http
@@ -466,9 +564,9 @@ struct AsanaTask {
     platform: String,
     created_at: u64
 }
-```
+``` -->
 
-## Testing the API
+<!-- ## Testing the API
 
 Here's a complete sequence of commands to test the API:
 
@@ -564,16 +662,17 @@ curl -X POST http://localhost:3000/slack/asana/U123456789/tasks \
     "platform": "asana",
     "created_at": 1234567890
   }'
-``` 
+```  -->
 
-## Mainnet
+## Pushing to production
 
 ### Base URL
+The main URL for production is: 
 ```
 http://154.38.174.112:3000
 ```
 
-### Authentication
+<!-- ### Authentication
 
 All API endpoints require authentication using an API key. Include the API key in the `x-api-key` header with every request:
 
@@ -1253,4 +1352,4 @@ curl -X POST http://154.38.174.112:3000/slack/asana/U123456789/tasks \
     "platform": "asana",
     "created_at": 1234567890
   }'
-```
+``` -->
