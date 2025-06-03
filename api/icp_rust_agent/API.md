@@ -72,7 +72,7 @@ curl -X POST http://localhost:3000/slack/messages/U123456789 \
 }
 ```
 
-Where: 
+**Request Fields**
 1. ``id``: is the principal ID of user. Currently it's anonymous - to represent an unauthenticated/anonymous user.
 2. ``role``: Indicates who sent the message. It's an enum with two possible values:
 ``User``: When the message is from a human user
@@ -81,7 +81,7 @@ Where:
 5. ``timestamp``: A Unix timestamp (in seconds) indicating when the message was sent. In the example, it's ``1234567890``
 6. ``bot_name``: Specifies which bot/assistant sent the message. 
 
-##### Responses: 
+**Response** 
 If you get the response: 
 ```json
 {
@@ -99,6 +99,29 @@ curl http://localhost:3000/slack/messages/U123456789 \
   -H "x-api-key: your-api-key-here"
 ```
 
+**Response**:
+```json
+{
+  "success":true,
+  "data":[
+    { "id":"2vxsx-fae",
+      "role":"User",
+      "content":"Hello!",
+      "question_asked":null,
+      "timestamp":1234567890,
+      "bot_name":"Benny"
+    },
+    { "id":"2vxsx-fae",
+      "role":"User", 
+      "content":"Hello!", 
+      "question_asked":null, 
+      "timestamp":1234567890,
+      "bot_name":"Benny"
+    }],
+  "error":null
+}                 
+```
+
 #### Step 2: Store GitHub activity:
 The first step is to store the user's github token connection
 ```bash
@@ -111,6 +134,18 @@ curl -X POST http://localhost:3000/slack/github/U123456789/connect \
   }'
 ```
 
+**Request Body:**
+```json
+{
+  "token": "your_github_token",
+  "selected_repo": null
+}
+```
+
+**Request Fields**
+1. ``token``: The GitHub personal access token used to authenticate API requests. This token should have the necessary permissions to access repositories and issues.
+2. ``selected_repo``: An optional field (can be null) that specifies which GitHub repository is currently selected for the user. Format should be "owner/repo" (e.g., "octocat/Hello-World").
+
 The second step is to store the github repository for the user: 
 ```bash
 curl -X POST http://154.38.174.112:3000/slack/github/U123456789/repo \
@@ -118,6 +153,14 @@ curl -X POST http://154.38.174.112:3000/slack/github/U123456789/repo \
   -H "x-api-key: your-api-key-here" \
   -d '"owner/repo"'
 ```
+
+**Request Body:**
+```json
+"owner/repo"
+```
+
+**Request Fields**
+1. ``owner/repo``: A string in the format "owner/repo" that specifies which GitHub repository to associate with the user. For example, "octocat/Hello-World" would select the Hello-World repository owned by the octocat user.
 
 The third step is to store a github issue for the user
 ```bash
@@ -133,6 +176,26 @@ curl -X POST http://154.38.174.112:3000/slack/github/U123456789/issues \
     "status": "Open"
   }'
 ```
+
+**Request Body:**
+```json
+{
+    "id": "123",
+    "title": "Bug fix",
+    "body": "Fix the login issue",
+    "repository": "owner/repo",
+    "created_at": 1234567890,
+    "status": "Open"
+}
+```
+
+**Request Fields**
+1. ``id``: The unique identifier of the GitHub issue (e.g., "123").
+2. ``title``: The title or summary of the issue (e.g., "Bug fix").
+3. ``body``: The detailed description of the issue (e.g., "Fix the login issue").
+4. ``repository``: The repository where the issue exists, in "owner/repo" format.
+5. ``created_at``: Unix timestamp (in seconds) when the issue was created.
+6. ``status``: The current state of the issue, either "Open" or "Closed".
 
 #### Step 3: Storing project management activity:
 First thing is to store the user's asana connection: 
@@ -150,6 +213,23 @@ curl -X POST http://154.38.174.112:3000/slack/asana/U123456789/connect \
   }'
 ``` 
 
+**Request Body**
+```json 
+{
+  "token": "your_asana_token",
+  "workspace_id": "workspace123",
+  "project_ids": [
+      ["project1", "Project One"],
+      ["project2", "Project Two"]
+  ]
+}
+```
+
+**Request Fields**
+1. ``token``: The Asana personal access token used to authenticate API requests. This token should have the necessary permissions to access workspaces and projects.
+2. ``workspace_id``: The unique identifier of the Asana workspace where the projects exist.
+3. ``project_ids``: An array of project pairs, where each pair contains [project_id, project_name]. This allows tracking multiple projects within the workspace.
+
 The second step is to store the task that has been created through ASANA
 ```bash
 curl -X POST http://154.38.174.112:3000/slack/asana/U123456789/tasks \
@@ -166,6 +246,30 @@ curl -X POST http://154.38.174.112:3000/slack/asana/U123456789/tasks \
     "created_at": 1234567890
   }'
 ```
+
+**Request Body**
+```json 
+{
+    "id": "task123",
+    "status": "active",
+    "title": "Implement login feature",
+    "creator": "2vxsx-fae",
+    "platform_id": "asana_task_123",
+    "description": "Implement user authentication",
+    "platform": "asana",
+    "created_at": 1234567890
+}
+```
+
+**Request Fields**
+1. ``id``: A unique identifier for the task in our system.
+2. ``status``: The current state of the task (e.g., "active", "completed").
+3. ``title``: The name or summary of the task.
+4. ``creator``: The principal ID of the user who created the task.
+5. ``platform_id``: The unique identifier of the task in Asana.
+6. ``description``: Detailed description of what the task involves.
+7. ``platform``: The platform where the task exists (e.g., "asana").
+8. ``created_at``: Unix timestamp (in seconds) when the task was created.
 
 ### Error Responses
 
@@ -669,7 +773,6 @@ The main URL for production is:
 ```
 http://154.38.174.112:3000
 ```
-
 <!-- ### Authentication
 
 All API endpoints require authentication using an API key. Include the API key in the `x-api-key` header with every request:
