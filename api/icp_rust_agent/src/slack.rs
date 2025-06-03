@@ -29,16 +29,16 @@ pub struct ChatMessage {
 }
 
 impl ChatMessage {
-    pub fn new(role: MessageRole, content: String, timestamp: u64) -> Self {
-        Self {
-            id: Principal::anonymous(),
-            role,
-            content,
-            question_asked: None,
-            timestamp,
-            bot_name: None,
-        }
-    }
+    // pub fn new(role: MessageRole, content: String, timestamp: u64) -> Self {
+    //     Self {
+    //         id: Principal::anonymous(),
+    //         role,
+    //         content,
+    //         question_asked: None,
+    //         timestamp,
+    //         bot_name: None,
+    //     }
+    // }
 }
 
 #[derive(Debug, Serialize, Deserialize)]
@@ -68,10 +68,10 @@ impl<T> SlackResponse<T> {
 
 #[derive(CandidType)]
 pub enum UserIdentifier {
-    Principal(Principal),
-    OpenChatId(String),
+    // Principal(Principal),
+    // OpenChatId(String),
     SlackId(String),
-    DiscordId(String),
+    // DiscordId(String),
 }
 
 #[derive(Debug, Serialize, Deserialize, CandidType)]

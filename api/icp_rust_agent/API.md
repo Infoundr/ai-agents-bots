@@ -19,7 +19,7 @@ Then run the command for deploying and setting up the API:
 Once the setup runs succesfully, this is what you'll see: 
 ![Deplyment succesfull](./deployment.png)
 
-> Note: The backend canister will expire in 20 minutes!. Please re-deploy after 10-15 minutes maximum to avoid disrupting your workflow.
+> Note: The backend canister will expire in 20 minutes! Please re-deploy after 10-15 minutes maximum to avoid disrupting your workflow.
 
 You can do that by re-running ``./setup_locally.sh`` 
 
@@ -28,8 +28,6 @@ The API is now available at ``http://localhost:3000``
 
 ### Authentication
 You'll copy the ``.env.example`` to a new ``.env`` file, and insert your API key there.
-
-All API endpoints require authentication using an API key. Include the API key in the `x-api-key` header with every request. 
 
 ### How to interact with the API
 
@@ -1215,7 +1213,6 @@ struct GitHubConnection {
     selected_repo: Option<String>
 }
 ```
-
 ### GitHubIssue
 ```rust
 struct GitHubIssue {

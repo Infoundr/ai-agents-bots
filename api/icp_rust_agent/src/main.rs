@@ -8,7 +8,7 @@ use axum::{
     Router,
     Json,
     extract::{State, Path},
-    http::{StatusCode, HeaderMap, Request},
+    http::{HeaderMap, Request},
     middleware::{self, Next},
     response::{Response, IntoResponse},
 };
@@ -26,7 +26,7 @@ use slack::{
 };
 
 // const CANISTER_ID: &str = "g7ko2-fyaaa-aaaam-qdlea-cai"; // mainnet
-const CANISTER_ID: &str = "wmfrn-xyaaa-aaaab-qadea-cai"; // testnet
+const CANISTER_ID: &str = "mkv5r-3aaaa-aaaab-qabsq-cai"; // testnet
 
 #[derive(Clone)]
 struct AppState {

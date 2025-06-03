@@ -28,8 +28,24 @@ git clone https://github.com/Infoundr/infoundr-site.git "$TEMP_DIR"
 # Navigate to the backend directory
 cd "$TEMP_DIR"
 
+# Ensure assetstorage.did exists for frontend
+if [ ! -f "$TEMP_DIR/frontend/assetstorage.did" ]; then
+    echo -e "${YELLOW}⚠️  Creating missing frontend/assetstorage.did...${NC}"
+    cat > "$TEMP_DIR/frontend/assetstorage.did" <<EOL
+service : () -> () {}
+EOL
+fi
+
+# Install dependencies
+echo -e "${GREEN}📦 Installing dependencies...${NC}"
+cd "$TEMP_DIR"
+npm install
+cd "$TEMP_DIR/src/frontend"
+npm install
+
 # Deploy the backend canisters to playground
 echo -e "${GREEN}📦 Deploying backend canisters to Internet Computer Playground...${NC}"
+cd "$TEMP_DIR"
 npm run dev:playground
 
 # Extract the backend canister ID from the deployment output
