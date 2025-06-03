@@ -8,7 +8,7 @@ use axum::{
     Router,
     Json,
     extract::{State, Path},
-    http::{StatusCode, HeaderMap, Request},
+    http::{HeaderMap, Request},
     middleware::{self, Next},
     response::{Response, IntoResponse},
 };
@@ -25,8 +25,8 @@ use slack::{
     GitHubConnection, GitHubIssue, AsanaConnection, AsanaTask
 };
 
-const CANISTER_ID: &str = "g7ko2-fyaaa-aaaam-qdlea-cai"; // mainnet
-// const CANISTER_ID: &str = "x5pps-pqaaa-aaaab-qadbq-cai"; // testnet
+// const CANISTER_ID: &str = "g7ko2-fyaaa-aaaam-qdlea-cai"; // mainnet
+const CANISTER_ID: &str = "7pon3-7yaaa-aaaab-qacua-cai"; // testnet
 
 #[derive(Clone)]
 struct AppState {
