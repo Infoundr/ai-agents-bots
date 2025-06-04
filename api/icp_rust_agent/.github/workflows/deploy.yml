@@ -1,0 +1,34 @@
+name: Deploy ICP Rust Agent
+
+on:
+  push:
+    branches:
+      - main
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Switch to mainnet canister ID
+        run: |
+          sed -i 's|// const CANISTER_ID: &str = "g7ko2-fyaaa-aaaam-qdlea-cai"; // mainnet|const CANISTER_ID: &str = "g7ko2-fyaaa-aaaam-qdlea-cai"; // mainnet|g' src/main.rs
+          sed -i 's|const CANISTER_ID: &str = "54ro3-xaaaa-aaaab-qac2q-cai"; // development|// const CANISTER_ID: &str = "54ro3-xaaaa-aaaab-qac2q-cai"; // development|g' src/main.rs
+
+      - name: Create .env file
+        run: |
+          echo "API_KEY=dV4DBSWqPM7AZi3VLMl90y0PFvbAogj0SPIjqnGFl1E=" > .env
+          echo "BASE_URL=https://infoundr.com/" >> .env
+
+      - name: Deploy to server
+        uses: appleboy/ssh-action@master
+        with:
+          host: 154.38.174.112
+          username: root
+          password: ${{ secrets.SERVER_PASSWORD }}
+          script: |
+            cd /root/webapp-chat-agent/api/icp_rust_agent
+            git pull origin main
+            tmux new-session -d -s infoundr_storage_api 'cargo run && cargo build' 
