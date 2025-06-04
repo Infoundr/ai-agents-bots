@@ -66,7 +66,7 @@ impl<T> SlackResponse<T> {
     }
 }
 
-#[derive(CandidType)]
+#[derive(CandidType, Debug)]
 pub enum UserIdentifier {
     // Principal(Principal),
     // OpenChatId(String),
@@ -94,7 +94,20 @@ pub struct GitHubIssue {
     pub body: String,
     pub repository: String,
     pub created_at: u64,
+    #[serde(deserialize_with = "deserialize_status")]
     pub status: IssueStatus,
+}
+
+fn deserialize_status<'de, D>(deserializer: D) -> Result<IssueStatus, D::Error>
+where
+    D: serde::Deserializer<'de>,
+{
+    let s = String::deserialize(deserializer)?;
+    match s.to_lowercase().as_str() {
+        "open" => Ok(IssueStatus::Open),
+        "closed" => Ok(IssueStatus::Closed),
+        _ => Ok(IssueStatus::Open), // Default to Open if status is unknown
+    }
 }
 
 #[derive(Debug, Serialize, Deserialize, CandidType)]
@@ -243,24 +256,46 @@ impl SlackClient {
     }
 
     pub async fn store_github_issue(&self, slack_id: String, issue: GitHubIssue) -> Result<SlackResponse<()>, String> {
+        println!("\n[DEBUG] ====== GitHub Issue Storage Request ======");
+        println!("[DEBUG] SlackClient: Starting to store GitHub issue");
+        println!("[DEBUG] SlackClient: Slack ID: {}", slack_id);
+        println!("[DEBUG] SlackClient: Issue: {:#?}", issue);
+        
         // First ensure user is registered
         match self.ensure_user_registered(slack_id.clone()).await {
             Ok(_) => {
+                println!("[DEBUG] SlackClient: User is registered");
                 let identifier = UserIdentifier::SlackId(slack_id);
+                println!("[DEBUG] SlackClient: Using identifier: {:?}", identifier);
+                
                 let args = Encode!(&identifier, &issue)
                     .map_err(|e| format!("Failed to encode arguments: {}", e))?;
-
+                println!("[DEBUG] SlackClient: Encoded arguments successfully");
+                println!("[DEBUG] SlackClient: Canister ID: {:?}", self.canister_id);
+                
                 match self.agent
                     .update(&self.canister_id, "store_github_issue")
                     .with_arg(args)
                     .call_and_wait()
                     .await
                 {
-                    Ok(_) => Ok(SlackResponse::success(())),
-                    Err(e) => Ok(SlackResponse::error(format!("Failed to store GitHub issue: {}", e))),
+                    Ok(_) => {
+                        println!("[DEBUG] SlackClient: Successfully called canister");
+                        println!("[DEBUG] ====== GitHub Issue Storage Complete ======\n");
+                        Ok(SlackResponse::success(()))
+                    },
+                    Err(e) => {
+                        println!("[DEBUG] SlackClient: Error calling canister: {}", e);
+                        println!("[DEBUG] ====== GitHub Issue Storage Failed ======\n");
+                        Ok(SlackResponse::error(format!("Failed to store GitHub issue: {}", e)))
+                    },
                 }
             },
-            Err(e) => Ok(SlackResponse::error(format!("Failed to register user: {}", e))),
+            Err(e) => {
+                println!("[DEBUG] SlackClient: Failed to register user: {}", e);
+                println!("[DEBUG] ====== GitHub Issue Storage Failed ======\n");
+                Ok(SlackResponse::error(format!("Failed to register user: {}", e)))
+            },
         }
     }
 

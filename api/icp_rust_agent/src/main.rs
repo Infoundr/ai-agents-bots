@@ -188,9 +188,23 @@ async fn store_github_issue(
     Path(slack_id): Path<String>,
     Json(issue): Json<GitHubIssue>,
 ) -> Json<SlackResponse<()>> {
+    println!("\n[DEBUG] ====== GitHub Issue Handler ======");
+    println!("[DEBUG] Received request to store GitHub issue");
+    println!("[DEBUG] Slack ID: {}", slack_id);
+    println!("[DEBUG] GitHub Issue: {:#?}", issue);
+    
     match state.slack_client.store_github_issue(slack_id, issue).await {
-        Ok(response) => Json(response),
-        Err(e) => Json(SlackResponse::error(e)),
+        Ok(response) => {
+            println!("[DEBUG] Successfully stored GitHub issue");
+            println!("[DEBUG] Response: {:?}", response);
+            println!("[DEBUG] ====== GitHub Issue Handler Complete ======\n");
+            Json(response)
+        },
+        Err(e) => {
+            println!("[DEBUG] Error storing GitHub issue: {:?}", e);
+            println!("[DEBUG] ====== GitHub Issue Handler Failed ======\n");
+            Json(SlackResponse::error(e))
+        }
     }
 }
 
