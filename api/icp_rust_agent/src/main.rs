@@ -27,7 +27,7 @@ use slack::{
 };
 
 // const CANISTER_ID: &str = "g7ko2-fyaaa-aaaam-qdlea-cai"; // mainnet
-const CANISTER_ID: &str = "54ro3-xaaaa-aaaab-qac2q-cai"; // testnet
+const CANISTER_ID: &str = "54ro3-xaaaa-aaaab-qac2q-cai"; // development
 
 #[derive(Clone)]
 struct AppState {
