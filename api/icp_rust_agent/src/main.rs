@@ -26,9 +26,6 @@ use slack::{
     GitHubConnection, GitHubIssue, AsanaConnection, AsanaTask
 };
 
-// const CANISTER_ID: &str = "g7ko2-fyaaa-aaaam-qdlea-cai"; // mainnet
-const CANISTER_ID: &str = "54ro3-xaaaa-aaaab-qac2q-cai"; // development
-
 #[derive(Clone)]
 struct AppState {
     agent: Arc<Agent>,
@@ -343,10 +340,14 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     // Load .env file
     dotenv().ok();
     
+    // Get CANISTER_ID from environment variable
+    let canister_id_str = std::env::var("CANISTER_ID")
+        .expect("CANISTER_ID must be set in .env file");
+    let canister_id = Principal::from_text(&canister_id_str)?;
+    
     // Initialize ICP agent
     let url = Url::parse("https://ic0.app")?;
     let agent = create_agent(url, true).await?;
-    let canister_id = Principal::from_text(CANISTER_ID)?;
     
     // Create Slack client
     let slack_client = Arc::new(SlackClient::new(Arc::new(agent.clone()), canister_id));
