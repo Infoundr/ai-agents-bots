@@ -31,4 +31,4 @@ jobs:
           password: ${{ secrets.SERVER_PASSWORD }}
           script: |
             tmux send-keys -t infoundr_storage_api C-c
-            tmux send-keys -t infoundr_storage_api "cd /root/ai-agents-bots/api/icp_rust_agent && git pull origin main && echo 'CANISTER_ID=g7ko2-fyaaa-aaaam-qdlea-cai' > .env && echo 'API_KEY=dV4DBSWqPM7AZi3VLMl90y0PFvbAogj0SPIjqnGFl1E=' >> .env && echo 'BASE_URL=https://infoundr.com/' >> .env && cargo build && cargo run" C-m 
+            tmux send-keys -t infoundr_storage_api "cd /root/ai-agents-bots/api/icp_rust_agent && git fetch origin main && git reset --hard origin/main && git pull origin main && echo 'CANISTER_ID=g7ko2-fyaaa-aaaam-qdlea-cai' > .env && echo 'API_KEY=dV4DBSWqPM7AZi3VLMl90y0PFvbAogj0SPIjqnGFl1E=' >> .env && echo 'BASE_URL=https://infoundr.com/' >> .env && cargo build && cargo run" C-m 
