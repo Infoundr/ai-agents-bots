@@ -15,8 +15,8 @@ jobs:
 
       - name: Switch to mainnet canister ID
         run: |
-          sed -i 's|// const CANISTER_ID: &str = "g7ko2-fyaaa-aaaam-qdlea-cai"; // mainnet|const CANISTER_ID: &str = "g7ko2-fyaaa-aaaam-qdlea-cai"; // mainnet|g' src/main.rs
-          sed -i 's|const CANISTER_ID: &str = "54ro3-xaaaa-aaaab-qac2q-cai"; // development|// const CANISTER_ID: &str = "54ro3-xaaaa-aaaab-qac2q-cai"; // development|g' src/main.rs
+          sed -i 's|// const CANISTER_ID: &str = "g7ko2-fyaaa-aaaam-qdlea-cai"; // mainnet|const CANISTER_ID: &str = "g7ko2-fyaaa-aaaam-qdlea-cai"; // mainnet|g' api/icp_rust_agent/src/main.rs
+          sed -i 's|const CANISTER_ID: &str = "54ro3-xaaaa-aaaab-qac2q-cai"; // development|// const CANISTER_ID: &str = "54ro3-xaaaa-aaaab-qac2q-cai"; // development|g' api/icp_rust_agent/src/main.rs
 
       - name: Create .env file
         run: |
