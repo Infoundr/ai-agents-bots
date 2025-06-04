@@ -148,7 +148,7 @@ curl -X POST http://localhost:3000/slack/github/U123456789/connect \
 
 The second step is to store the github repository for the user: 
 ```bash
-curl -X POST http://154.38.174.112:3000/slack/github/U123456789/repo \
+curl -X POST http://localhost:3000/slack/github/U123456789/repo \
   -H "Content-Type: application/json" \
   -H "x-api-key: your-api-key-here" \
   -d '"owner/repo"'
@@ -164,7 +164,7 @@ curl -X POST http://154.38.174.112:3000/slack/github/U123456789/repo \
 
 The third step is to store a github issue for the user
 ```bash
-curl -X POST http://154.38.174.112:3000/slack/github/U123456789/issues \
+curl -X POST http://localhost:3000/slack/github/U123456789/issues \
   -H "Content-Type: application/json" \
   -H "x-api-key: your-api-key-here" \
   -d '{
@@ -200,7 +200,7 @@ curl -X POST http://154.38.174.112:3000/slack/github/U123456789/issues \
 #### Step 3: Storing project management activity:
 First thing is to store the user's asana connection: 
 ```bash
-curl -X POST http://154.38.174.112:3000/slack/asana/U123456789/connect \
+curl -X POST http://localhost:3000/slack/asana/U123456789/connect \
   -H "Content-Type: application/json" \
   -H "x-api-key: your-api-key-here" \
   -d '{
@@ -232,7 +232,7 @@ curl -X POST http://154.38.174.112:3000/slack/asana/U123456789/connect \
 
 The second step is to store the task that has been created through ASANA
 ```bash
-curl -X POST http://154.38.174.112:3000/slack/asana/U123456789/tasks \
+curl -X POST http://localhost:3000/slack/asana/U123456789/tasks \
   -H "Content-Type: application/json" \
   -H "x-api-key: your-api-key-here" \
   -d '{
@@ -270,6 +270,12 @@ curl -X POST http://154.38.174.112:3000/slack/asana/U123456789/tasks \
 6. ``description``: Detailed description of what the task involves.
 7. ``platform``: The platform where the task exists (e.g., "asana").
 8. ``created_at``: Unix timestamp (in seconds) when the task was created.
+
+#### Step 4: Getting dashboard token for login: 
+```bash
+curl -X POST http://localhost:3000/slack/token/U123456789 \
+  -H "x-api-key: your-api-key-here"
+```
 
 ### Error Responses
 

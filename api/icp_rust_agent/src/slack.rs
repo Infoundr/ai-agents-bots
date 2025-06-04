@@ -3,6 +3,7 @@ use serde::{Serialize, Deserialize};
 use anyhow::Result;
 use std::sync::Arc;
 use ic_agent::Agent;
+use std::io::Write;
 
 #[derive(Debug, Serialize, Deserialize, CandidType)]
 pub struct SlackUser {
@@ -66,7 +67,7 @@ impl<T> SlackResponse<T> {
     }
 }
 
-#[derive(CandidType)]
+#[derive(CandidType, Debug)]
 pub enum UserIdentifier {
     // Principal(Principal),
     // OpenChatId(String),
@@ -94,7 +95,20 @@ pub struct GitHubIssue {
     pub body: String,
     pub repository: String,
     pub created_at: u64,
+    #[serde(deserialize_with = "deserialize_status")]
     pub status: IssueStatus,
+}
+
+fn deserialize_status<'de, D>(deserializer: D) -> Result<IssueStatus, D::Error>
+where
+    D: serde::Deserializer<'de>,
+{
+    let s = String::deserialize(deserializer)?;
+    match s.to_lowercase().as_str() {
+        "open" => Ok(IssueStatus::Open),
+        "closed" => Ok(IssueStatus::Closed),
+        _ => Ok(IssueStatus::Open), // Default to Open if status is unknown
+    }
 }
 
 #[derive(Debug, Serialize, Deserialize, CandidType)]
@@ -130,6 +144,10 @@ impl SlackClient {
     }
 
     pub async fn ensure_user_registered(&self, slack_id: String) -> Result<SlackResponse<()>, String> {
+        println!("\n[DEBUG] ====== Ensuring User Registration ======");
+        println!("[DEBUG] SlackClient: Ensuring user registration for Slack ID: {}", slack_id);
+        std::io::stdout().flush().unwrap();
+
         let args = Encode!(&slack_id)
             .map_err(|e| format!("Failed to encode arguments: {}", e))?;
 
@@ -139,8 +157,16 @@ impl SlackClient {
             .call_and_wait()
             .await
         {
-            Ok(_) => Ok(SlackResponse::success(())),
-            Err(e) => Ok(SlackResponse::error(format!("Failed to register user: {}", e))),
+            Ok(_) => {
+                println!("[DEBUG] SlackClient: User registration successful");
+                std::io::stdout().flush().unwrap();
+                Ok(SlackResponse::success(()))
+            },
+            Err(e) => {
+                println!("[DEBUG] SlackClient: User registration failed: {}", e);
+                std::io::stdout().flush().unwrap();
+                Ok(SlackResponse::error(format!("Failed to register user: {}", e)))
+            },
         }
     }
 
@@ -162,25 +188,50 @@ impl SlackClient {
     }
 
     pub async fn store_chat_message(&self, slack_id: String, message: ChatMessage) -> Result<SlackResponse<()>, String> {
+        println!("\n[DEBUG] ====== Chat Message Storage Request ======");
+        println!("[DEBUG] SlackClient: Starting to store chat message");
+        println!("[DEBUG] SlackClient: Slack ID: {}", slack_id);
+        println!("[DEBUG] SlackClient: Message: {:#?}", message);
+        std::io::stdout().flush().unwrap();
+
         // First ensure the user is registered
         match self.ensure_user_registered(slack_id.clone()).await {
             Ok(_) => {
-                // User is registered, proceed with storing the message
+                println!("[DEBUG] SlackClient: User is registered");
                 let identifier = UserIdentifier::SlackId(slack_id);
+                println!("[DEBUG] SlackClient: Using identifier: {:?}", identifier);
+                
                 let args = Encode!(&identifier, &message)
                     .map_err(|e| format!("Failed to encode arguments: {}", e))?;
-
+                println!("[DEBUG] SlackClient: Encoded arguments successfully");
+                println!("[DEBUG] SlackClient: Canister ID: {:?}", self.canister_id);
+                
                 match self.agent
                     .update(&self.canister_id, "store_chat_message")
                     .with_arg(args)
                     .call_and_wait()
                     .await
                 {
-                    Ok(_) => Ok(SlackResponse::success(())),
-                    Err(e) => Ok(SlackResponse::error(format!("Failed to store message: {}", e))),
+                    Ok(_) => {
+                        println!("[DEBUG] SlackClient: Successfully called canister");
+                        println!("[DEBUG] ====== Chat Message Storage Complete ======\n");
+                        std::io::stdout().flush().unwrap();
+                        Ok(SlackResponse::success(()))
+                    },
+                    Err(e) => {
+                        println!("[DEBUG] SlackClient: Error calling canister: {}", e);
+                        println!("[DEBUG] ====== Chat Message Storage Failed ======\n");
+                        std::io::stdout().flush().unwrap();
+                        Ok(SlackResponse::error(format!("Failed to store message: {}", e)))
+                    },
                 }
             },
-            Err(e) => Ok(SlackResponse::error(format!("Failed to register user: {}", e))),
+            Err(e) => {
+                println!("[DEBUG] SlackClient: Failed to register user: {}", e);
+                println!("[DEBUG] ====== Chat Message Storage Failed ======\n");
+                std::io::stdout().flush().unwrap();
+                Ok(SlackResponse::error(format!("Failed to register user: {}", e)))
+            },
         }
     }
 
@@ -243,24 +294,46 @@ impl SlackClient {
     }
 
     pub async fn store_github_issue(&self, slack_id: String, issue: GitHubIssue) -> Result<SlackResponse<()>, String> {
+        println!("\n[DEBUG] ====== GitHub Issue Storage Request ======");
+        println!("[DEBUG] SlackClient: Starting to store GitHub issue");
+        println!("[DEBUG] SlackClient: Slack ID: {}", slack_id);
+        println!("[DEBUG] SlackClient: Issue: {:#?}", issue);
+        
         // First ensure user is registered
         match self.ensure_user_registered(slack_id.clone()).await {
             Ok(_) => {
+                println!("[DEBUG] SlackClient: User is registered");
                 let identifier = UserIdentifier::SlackId(slack_id);
+                println!("[DEBUG] SlackClient: Using identifier: {:?}", identifier);
+                
                 let args = Encode!(&identifier, &issue)
                     .map_err(|e| format!("Failed to encode arguments: {}", e))?;
-
+                println!("[DEBUG] SlackClient: Encoded arguments successfully");
+                println!("[DEBUG] SlackClient: Canister ID: {:?}", self.canister_id);
+                
                 match self.agent
                     .update(&self.canister_id, "store_github_issue")
                     .with_arg(args)
                     .call_and_wait()
                     .await
                 {
-                    Ok(_) => Ok(SlackResponse::success(())),
-                    Err(e) => Ok(SlackResponse::error(format!("Failed to store GitHub issue: {}", e))),
+                    Ok(_) => {
+                        println!("[DEBUG] SlackClient: Successfully called canister");
+                        println!("[DEBUG] ====== GitHub Issue Storage Complete ======\n");
+                        Ok(SlackResponse::success(()))
+                    },
+                    Err(e) => {
+                        println!("[DEBUG] SlackClient: Error calling canister: {}", e);
+                        println!("[DEBUG] ====== GitHub Issue Storage Failed ======\n");
+                        Ok(SlackResponse::error(format!("Failed to store GitHub issue: {}", e)))
+                    },
                 }
             },
-            Err(e) => Ok(SlackResponse::error(format!("Failed to register user: {}", e))),
+            Err(e) => {
+                println!("[DEBUG] SlackClient: Failed to register user: {}", e);
+                println!("[DEBUG] ====== GitHub Issue Storage Failed ======\n");
+                Ok(SlackResponse::error(format!("Failed to register user: {}", e)))
+            },
         }
     }
 
@@ -310,24 +383,46 @@ impl SlackClient {
     }
 
     pub async fn store_asana_task(&self, slack_id: String, task: AsanaTask) -> Result<SlackResponse<()>, String> {
+        println!("\n[DEBUG] ====== Asana Task Storage Request ======");
+        println!("[DEBUG] SlackClient: Starting to store Asana task");
+        println!("[DEBUG] SlackClient: Slack ID: {}", slack_id);
+        println!("[DEBUG] SlackClient: Task: {:#?}", task);
+        
         // First ensure user is registered
         match self.ensure_user_registered(slack_id.clone()).await {
             Ok(_) => {
+                println!("[DEBUG] SlackClient: User is registered");
                 let identifier = UserIdentifier::SlackId(slack_id);
+                println!("[DEBUG] SlackClient: Using identifier: {:?}", identifier);
+                
                 let args = Encode!(&identifier, &task)
                     .map_err(|e| format!("Failed to encode arguments: {}", e))?;
-
+                println!("[DEBUG] SlackClient: Encoded arguments successfully");
+                println!("[DEBUG] SlackClient: Canister ID: {:?}", self.canister_id);
+                
                 match self.agent
                     .update(&self.canister_id, "store_asana_task")
                     .with_arg(args)
                     .call_and_wait()
                     .await
                 {
-                    Ok(_) => Ok(SlackResponse::success(())),
-                    Err(e) => Ok(SlackResponse::error(format!("Failed to store Asana task: {}", e))),
+                    Ok(_) => {
+                        println!("[DEBUG] SlackClient: Successfully called canister");
+                        println!("[DEBUG] ====== Asana Task Storage Complete ======\n");
+                        Ok(SlackResponse::success(()))
+                    },
+                    Err(e) => {
+                        println!("[DEBUG] SlackClient: Error calling canister: {}", e);
+                        println!("[DEBUG] ====== Asana Task Storage Failed ======\n");
+                        Ok(SlackResponse::error(format!("Failed to store Asana task: {}", e)))
+                    },
                 }
             },
-            Err(e) => Ok(SlackResponse::error(format!("Failed to register user: {}", e))),
+            Err(e) => {
+                println!("[DEBUG] SlackClient: Failed to register user: {}", e);
+                println!("[DEBUG] ====== Asana Task Storage Failed ======\n");
+                Ok(SlackResponse::error(format!("Failed to register user: {}", e)))
+            },
         }
     }
 } 
