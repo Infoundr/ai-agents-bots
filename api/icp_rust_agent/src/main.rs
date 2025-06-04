@@ -26,7 +26,7 @@ use slack::{
 };
 
 // const CANISTER_ID: &str = "g7ko2-fyaaa-aaaam-qdlea-cai"; // mainnet
-const CANISTER_ID: &str = "7pon3-7yaaa-aaaab-qacua-cai"; // testnet
+const CANISTER_ID: &str = "6mce5-laaaa-aaaab-qacsq-cai"; // testnet
 
 #[derive(Clone)]
 struct AppState {
@@ -34,6 +34,7 @@ struct AppState {
     canister_id: Principal,
     slack_client: Arc<SlackClient>,
     api_key: String,
+    base_url: String,
 }
 
 #[derive(Serialize)]
@@ -46,6 +47,12 @@ struct ErrorResponse {
     success: bool,
     data: Option<()>,
     error: String,
+}
+
+#[derive(Serialize)]
+struct TokenResponse {
+    token: String,
+    login_url: String,
 }
 
 // Add this middleware function
@@ -158,10 +165,45 @@ async fn store_slack_message(
 async fn generate_slack_token(
     State(state): State<AppState>,
     Path(slack_id): Path<String>,
-) -> Json<SlackResponse<String>> {
+) -> Json<SlackResponse<TokenResponse>> {
+    println!("\n[DEBUG] ====== Token Generation Request ======");
+    println!("[DEBUG] Generating token for Slack ID: {}", slack_id);
+    
     match state.slack_client.generate_dashboard_token(slack_id).await {
-        Ok(response) => Json(response),
-        Err(e) => Json(SlackResponse::error(e)),
+        Ok(response) => {
+            if let Some(token) = response.data {
+                println!("[DEBUG] Token generated successfully");
+                
+                // Clone the token before using it
+                let token_clone = token.clone();
+                
+                // Strip the Candid encoding prefix from the token
+                let clean_token = if token_clone.starts_with("DIDL\u{0}\u{1}q,") {
+                    token_clone.split("DIDL\u{0}\u{1}q,").nth(1).unwrap_or(&token_clone).to_string()
+                } else {
+                    token_clone
+                };
+                
+                println!("[DEBUG] Clean token: {}", clean_token);
+                let login_url = format!("{}/bot-login?token={}", state.base_url.trim_end_matches('/'), clean_token);
+                println!("[DEBUG] Generated login URL: {}", login_url);
+                println!("[DEBUG] ====== Token Generation Complete ======\n");
+                
+                Json(SlackResponse::success(TokenResponse {
+                    token,
+                    login_url,
+                }))
+            } else {
+                println!("[DEBUG] Token generation failed: No token in response");
+                println!("[DEBUG] ====== Token Generation Failed ======\n");
+                Json(SlackResponse::error("Failed to generate token".to_string()))
+            }
+        },
+        Err(e) => {
+            println!("[DEBUG] Token generation error: {}", e);
+            println!("[DEBUG] ====== Token Generation Failed ======\n");
+            Json(SlackResponse::error(e))
+        }
     }
 }
 
@@ -277,16 +319,19 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     // Create Slack client
     let slack_client = Arc::new(SlackClient::new(Arc::new(agent.clone()), canister_id));
     
-    // Get API key from environment variable
+    // Get API key and base URL from environment variables
     let api_key = std::env::var("API_KEY")
         .expect("API_KEY must be set in .env file");
+    let base_url = std::env::var("BASE_URL")
+        .unwrap_or_else(|_| "https://6mce5-laaaa-aaaab-qacsq-cai.icp0.io".to_string());
 
-    // Create app state with API key
+    // Create app state with API key and base URL
     let app_state = AppState {
         agent: Arc::new(agent),
         canister_id,
         slack_client,
         api_key,
+        base_url,
     };
     
     // Build our application with routes
