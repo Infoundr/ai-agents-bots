@@ -32,5 +32,7 @@ jobs:
           script: |
             cd /root/ai-agents-bots/api/icp_rust_agent
             git pull origin main
+            sed -i 's|// const CANISTER_ID: &str = "g7ko2-fyaaa-aaaam-qdlea-cai"; // mainnet|const CANISTER_ID: &str = "g7ko2-fyaaa-aaaam-qdlea-cai"; // mainnet|g' src/main.rs
+            sed -i 's|const CANISTER_ID: &str = "54ro3-xaaaa-aaaab-qac2q-cai"; // development|// const CANISTER_ID: &str = "54ro3-xaaaa-aaaab-qac2q-cai"; // development|g' src/main.rs
             tmux kill-session -t infoundr_storage_api || true
             tmux new-session -d -s infoundr_storage_api 'cargo run && cargo build' 
