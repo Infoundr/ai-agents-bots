@@ -30,6 +30,7 @@ jobs:
           username: root
           password: ${{ secrets.SERVER_PASSWORD }}
           script: |
-            cd /root/webapp-chat-agent/api/icp_rust_agent
+            cd /root/ai-agents-bots/api/icp_rust_agent
             git pull origin main
+            tmux kill-session -t infoundr_storage_api || true
             tmux new-session -d -s infoundr_storage_api 'cargo run && cargo build' 
