@@ -244,9 +244,23 @@ async fn store_asana_task(
     Path(slack_id): Path<String>,
     Json(task): Json<AsanaTask>,
 ) -> Json<SlackResponse<()>> {
+    println!("\n[DEBUG] ====== Asana Task Handler ======");
+    println!("[DEBUG] Received request to store Asana task");
+    println!("[DEBUG] Slack ID: {}", slack_id);
+    println!("[DEBUG] Asana Task: {:#?}", task);
+    
     match state.slack_client.store_asana_task(slack_id, task).await {
-        Ok(response) => Json(response),
-        Err(e) => Json(SlackResponse::error(e)),
+        Ok(response) => {
+            println!("[DEBUG] Successfully stored Asana task");
+            println!("[DEBUG] Response: {:?}", response);
+            println!("[DEBUG] ====== Asana Task Handler Complete ======\n");
+            Json(response)
+        },
+        Err(e) => {
+            println!("[DEBUG] Error storing Asana task: {:?}", e);
+            println!("[DEBUG] ====== Asana Task Handler Failed ======\n");
+            Json(SlackResponse::error(e))
+        }
     }
 }
 
