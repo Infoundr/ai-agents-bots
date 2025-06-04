@@ -18,6 +18,7 @@ use std::net::SocketAddr;
 use tower_http::cors::CorsLayer;
 use tower_http::trace::TraceLayer;
 use dotenv::dotenv;
+use std::io::Write;
 
 mod slack;
 use slack::{
@@ -26,7 +27,7 @@ use slack::{
 };
 
 // const CANISTER_ID: &str = "g7ko2-fyaaa-aaaam-qdlea-cai"; // mainnet
-const CANISTER_ID: &str = "6mce5-laaaa-aaaab-qacsq-cai"; // testnet
+const CANISTER_ID: &str = "54ro3-xaaaa-aaaab-qac2q-cai"; // testnet
 
 #[derive(Clone)]
 struct AppState {
@@ -62,11 +63,17 @@ async fn auth_middleware(
     request: Request<axum::body::Body>,
     next: Next,
 ) -> Result<Response, impl IntoResponse> {
+    println!("\n[DEBUG] ====== Auth Middleware ======");
+    println!("[DEBUG] Received request to: {}", request.uri());
+    std::io::stdout().flush().unwrap();
+
     // Get the API key from the header
     let api_key = headers
         .get("x-api-key")
         .and_then(|value| value.to_str().ok())
         .ok_or_else(|| {
+            println!("[DEBUG] Missing API key");
+            std::io::stdout().flush().unwrap();
             Json(ErrorResponse {
                 success: false,
                 data: None,
@@ -76,12 +83,17 @@ async fn auth_middleware(
 
     // Verify the API key
     if api_key != state.api_key {
+        println!("[DEBUG] Invalid API key");
+        std::io::stdout().flush().unwrap();
         return Err(Json(ErrorResponse {
             success: false,
             data: None,
             error: "Invalid API key".to_string(),
         }).into_response());
     }
+
+    println!("[DEBUG] Auth successful");
+    std::io::stdout().flush().unwrap();
 
     // If authentication passes, proceed with the request
     Ok(next.run(request).await)
@@ -155,9 +167,26 @@ async fn store_slack_message(
     Path(slack_id): Path<String>,
     Json(message): Json<ChatMessage>,
 ) -> Json<SlackResponse<()>> {
+    println!("\n[DEBUG] ====== Chat Message Handler ======");
+    println!("[DEBUG] Received request to store chat message");
+    println!("[DEBUG] Slack ID: {}", slack_id);
+    println!("[DEBUG] Message: {:#?}", message);
+    std::io::stdout().flush().unwrap();
+    
     match state.slack_client.store_chat_message(slack_id, message).await {
-        Ok(response) => Json(response),
-        Err(e) => Json(SlackResponse::error(e)),
+        Ok(response) => {
+            println!("[DEBUG] Successfully stored chat message");
+            println!("[DEBUG] Response: {:?}", response);
+            println!("[DEBUG] ====== Chat Message Handler Complete ======\n");
+            std::io::stdout().flush().unwrap();
+            Json(response)
+        },
+        Err(e) => {
+            println!("[DEBUG] Error storing chat message: {:?}", e);
+            println!("[DEBUG] ====== Chat Message Handler Failed ======\n");
+            std::io::stdout().flush().unwrap();
+            Json(SlackResponse::error(e))
+        }
     }
 }
 
@@ -234,17 +263,20 @@ async fn store_github_issue(
     println!("[DEBUG] Received request to store GitHub issue");
     println!("[DEBUG] Slack ID: {}", slack_id);
     println!("[DEBUG] GitHub Issue: {:#?}", issue);
+    std::io::stdout().flush().unwrap();
     
     match state.slack_client.store_github_issue(slack_id, issue).await {
         Ok(response) => {
             println!("[DEBUG] Successfully stored GitHub issue");
             println!("[DEBUG] Response: {:?}", response);
             println!("[DEBUG] ====== GitHub Issue Handler Complete ======\n");
+            std::io::stdout().flush().unwrap();
             Json(response)
         },
         Err(e) => {
             println!("[DEBUG] Error storing GitHub issue: {:?}", e);
             println!("[DEBUG] ====== GitHub Issue Handler Failed ======\n");
+            std::io::stdout().flush().unwrap();
             Json(SlackResponse::error(e))
         }
     }
