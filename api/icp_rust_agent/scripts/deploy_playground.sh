@@ -52,6 +52,24 @@ npm run dev:playground
 CANISTER_ID=$(dfx canister --playground id backend)
 echo -e "${GREEN}✅ Retrieved backend canister ID: ${YELLOW}$CANISTER_ID${NC}"
 
+# Update the .env file with the new canister ID
+echo -e "${GREEN}📝 Updating .env file with new canister ID...${NC}"
+ENV_FILE="$PROJECT_ROOT/.env"
+
+# Create .env file if it doesn't exist
+if [ ! -f "$ENV_FILE" ]; then
+    touch "$ENV_FILE"
+fi
+
+# Update or add BASE_URL in .env file
+if grep -q "BASE_URL=" "$ENV_FILE"; then
+    # Update existing BASE_URL
+    sed -i '' "s|BASE_URL=.*|BASE_URL=https://$CANISTER_ID.icp0.io|" "$ENV_FILE"
+else
+    # Add new BASE_URL
+    echo "BASE_URL=https://$CANISTER_ID.icp0.io" >> "$ENV_FILE"
+fi
+
 # Return to the original directory
 cd - > /dev/null
 
