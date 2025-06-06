@@ -48,12 +48,14 @@ echo -e "${GREEN}📦 Deploying backend canisters to Internet Computer Playgroun
 cd "$TEMP_DIR"
 npm run dev:playground
 
-# Extract the backend canister ID from the deployment output
-CANISTER_ID=$(dfx canister --playground id backend)
-echo -e "${GREEN}✅ Retrieved backend canister ID: ${YELLOW}$CANISTER_ID${NC}"
+# Extract the canister IDs from the deployment output
+BACKEND_CANISTER_ID=$(dfx canister --playground id backend)
+FRONTEND_CANISTER_ID=$(dfx canister --playground id frontend)
+echo -e "${GREEN}✅ Retrieved backend canister ID: ${YELLOW}$BACKEND_CANISTER_ID${NC}"
+echo -e "${GREEN}✅ Retrieved frontend canister ID: ${YELLOW}$FRONTEND_CANISTER_ID${NC}"
 
-# Update the .env file with the new canister ID
-echo -e "${GREEN}📝 Updating .env file with new canister ID...${NC}"
+# Update the .env file with the new canister IDs
+echo -e "${GREEN}📝 Updating .env file with new canister IDs...${NC}"
 ENV_FILE="$PROJECT_ROOT/.env"
 
 # Create .env file if it doesn't exist
@@ -63,20 +65,20 @@ fi
 
 # Update or add BASE_URL and CANISTER_ID in .env file
 if grep -q "BASE_URL=" "$ENV_FILE"; then
-    # Update existing BASE_URL
-    sed -i '' "s|BASE_URL=.*|BASE_URL=https://$CANISTER_ID.icp0.io|" "$ENV_FILE"
+    # Update existing BASE_URL with frontend canister ID
+    sed -i '' "s|BASE_URL=.*|BASE_URL=https://$FRONTEND_CANISTER_ID.icp0.io|" "$ENV_FILE"
 else
-    # Add new BASE_URL
-    echo "BASE_URL=https://$CANISTER_ID.icp0.io" >> "$ENV_FILE"
+    # Add new BASE_URL with frontend canister ID
+    echo "BASE_URL=https://$FRONTEND_CANISTER_ID.icp0.io" >> "$ENV_FILE"
 fi
 
-# Update or add CANISTER_ID
+# Update or add CANISTER_ID (using backend canister ID)
 if grep -q "CANISTER_ID=" "$ENV_FILE"; then
     # Update existing CANISTER_ID
-    sed -i '' "s|CANISTER_ID=.*|CANISTER_ID=$CANISTER_ID|" "$ENV_FILE"
+    sed -i '' "s|CANISTER_ID=.*|CANISTER_ID=$BACKEND_CANISTER_ID|" "$ENV_FILE"
 else
     # Add new CANISTER_ID
-    echo "CANISTER_ID=$CANISTER_ID" >> "$ENV_FILE"
+    echo "CANISTER_ID=$BACKEND_CANISTER_ID" >> "$ENV_FILE"
 fi
 
 # Return to the original directory
@@ -89,7 +91,7 @@ echo -e "${GREEN}📝 Updating canister ID in main.rs...${NC}"
 cp "$PROJECT_ROOT/src/main.rs" "$PROJECT_ROOT/src/main.rs.bak"
 
 # Replace only the canister ID value, preserving the rest of the line structure
-sed -i '' -e "s/\"[a-z0-9-]*\"; \/\/ testnet/\"$CANISTER_ID\"; \/\/ testnet/" "$PROJECT_ROOT/src/main.rs"
+sed -i '' -e "s/\"[a-z0-9-]*\"; \/\/ testnet/\"$BACKEND_CANISTER_ID\"; \/\/ testnet/" "$PROJECT_ROOT/src/main.rs"
 
 # Clean up
 echo -e "${GREEN}🧹 Cleaning up temporary files...${NC}"
@@ -100,4 +102,4 @@ echo -e "${YELLOW}Next steps:${NC}"
 echo "1. Update the API_KEY in the .env file with your actual API key"
 echo "2. Run the service with: cargo run"
 echo "3. The service will be available at: http://localhost:3005"
-echo -e "${YELLOW}Note:${NC} The backend canister is now deployed at: https://$CANISTER_ID.icp0.io" 
+echo -e "${YELLOW}Note:${NC} The backend canister is now deployed at: https://$BACKEND_CANISTER_ID.icp0.io" 
