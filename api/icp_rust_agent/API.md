@@ -24,7 +24,7 @@ Once the setup runs succesfully, this is what you'll see:
 You can do that by re-running ``./setup_locally.sh`` 
 
 ## Interacting with the API:
-The API is now available at ``http://localhost:3000``
+The API is now available at ``http://localhost:3005``
 
 ### Authentication
 You'll copy the ``.env.example`` to a new ``.env`` file, and insert your API key there.
@@ -777,7 +777,7 @@ curl -X POST http://localhost:3000/slack/asana/U123456789/tasks \
 ### Base URL
 The main URL for production is: 
 ```
-http://154.38.174.112:3000
+http://154.38.174.112:3005
 ```
 <!-- ### Authentication
 
