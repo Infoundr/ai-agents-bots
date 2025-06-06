@@ -47,7 +47,7 @@ When a user sends a request from the agent bots, this is how we're storing the c
 
 Once the message is received, this is the request you'll run to store the message. 
 ```bash
-curl -X POST http://localhost:3000/slack/messages/U123456789 \
+curl -X POST http://localhost:3005/slack/messages/U123456789 \
   -H "Content-Type: application/json" \
   -H "x-api-key: your-api-key-here" \
   -d '{
@@ -95,7 +95,7 @@ It means the data was succesfully stored in the backend canister.
 To verify this, you can test out the user messages inserted by running the command: 
 ```bash
 # Get all messages for user U123456789
-curl http://localhost:3000/slack/messages/U123456789 \
+curl http://localhost:3005/slack/messages/U123456789 \
   -H "x-api-key: your-api-key-here"
 ```
 
@@ -125,7 +125,7 @@ curl http://localhost:3000/slack/messages/U123456789 \
 #### Step 2: Store GitHub activity:
 The first step is to store the user's github token connection
 ```bash
-curl -X POST http://localhost:3000/slack/github/U123456789/connect \
+curl -X POST http://localhost:3005/slack/github/U123456789/connect \
   -H "Content-Type: application/json" \
   -H "x-api-key: your-api-key-here" \
   -d '{
@@ -148,7 +148,7 @@ curl -X POST http://localhost:3000/slack/github/U123456789/connect \
 
 The second step is to store the github repository for the user: 
 ```bash
-curl -X POST http://localhost:3000/slack/github/U123456789/repo \
+curl -X POST http://localhost:3005/slack/github/U123456789/repo \
   -H "Content-Type: application/json" \
   -H "x-api-key: your-api-key-here" \
   -d '"owner/repo"'
@@ -164,7 +164,7 @@ curl -X POST http://localhost:3000/slack/github/U123456789/repo \
 
 The third step is to store a github issue for the user
 ```bash
-curl -X POST http://localhost:3000/slack/github/U123456789/issues \
+curl -X POST http://localhost:3005/slack/github/U123456789/issues \
   -H "Content-Type: application/json" \
   -H "x-api-key: your-api-key-here" \
   -d '{
@@ -200,7 +200,7 @@ curl -X POST http://localhost:3000/slack/github/U123456789/issues \
 #### Step 3: Storing project management activity:
 First thing is to store the user's asana connection: 
 ```bash
-curl -X POST http://localhost:3000/slack/asana/U123456789/connect \
+curl -X POST http://localhost:3005/slack/asana/U123456789/connect \
   -H "Content-Type: application/json" \
   -H "x-api-key: your-api-key-here" \
   -d '{
@@ -232,7 +232,7 @@ curl -X POST http://localhost:3000/slack/asana/U123456789/connect \
 
 The second step is to store the task that has been created through ASANA
 ```bash
-curl -X POST http://localhost:3000/slack/asana/U123456789/tasks \
+curl -X POST http://localhost:3005/slack/asana/U123456789/tasks \
   -H "Content-Type: application/json" \
   -H "x-api-key: your-api-key-here" \
   -d '{
@@ -273,7 +273,7 @@ curl -X POST http://localhost:3000/slack/asana/U123456789/tasks \
 
 #### Step 4: Getting dashboard token for login: 
 ```bash
-curl -X POST http://localhost:3000/slack/token/U123456789 \
+curl -X POST http://localhost:3005/slack/token/U123456789 \
   -H "x-api-key: your-api-key-here"
 ```
 
@@ -316,7 +316,7 @@ Generates a dashboard token for a Slack user.
 **Example:**
 ```bash
 # Generate a token for user U123456789
-curl -X POST http://localhost:3000/slack/token/U123456789 \
+curl -X POST http://localhost:3005/slack/token/U123456789 \
   -H "x-api-key: your-api-key-here"
 ```
 
@@ -357,7 +357,7 @@ Stores a GitHub connection for a Slack user.
 
 **Example:**
 ```bash
-curl -X POST http://localhost:3000/slack/github/U123456789/connect \
+curl -X POST http://localhost:3005/slack/github/U123456789/connect \
   -H "Content-Type: application/json" \
   -H "x-api-key: your-api-key-here" \
   -d '{
@@ -396,7 +396,7 @@ Updates the selected GitHub repository for a Slack user.
 
 **Example:**
 ```bash
-curl -X POST http://localhost:3000/slack/github/U123456789/repo \
+curl -X POST http://localhost:3005/slack/github/U123456789/repo \
   -H "Content-Type: application/json" \
   -H "x-api-key: your-api-key-here" \
   -d '"owner/repo"'
@@ -441,7 +441,7 @@ Stores a GitHub issue for a Slack user.
 
 **Example:**
 ```bash
-curl -X POST http://localhost:3000/slack/github/U123456789/issues \
+curl -X POST http://localhost:3005/slack/github/U123456789/issues \
   -H "Content-Type: application/json" \
   -H "x-api-key: your-api-key-here" \
   -d '{
@@ -495,7 +495,7 @@ Stores an Asana connection for a Slack user.
 
 **Example:**
 ```bash
-curl -X POST http://localhost:3000/slack/asana/U123456789/connect \
+curl -X POST http://localhost:3005/slack/asana/U123456789/connect \
   -H "Content-Type: application/json" \
   -H "x-api-key: your-api-key-here" \
   -d '{
@@ -549,7 +549,7 @@ Stores an Asana task for a Slack user.
 
 **Example:**
 ```bash
-curl -X POST http://localhost:3000/slack/asana/U123456789/tasks \
+curl -X POST http://localhost:3005/slack/asana/U123456789/tasks \
   -H "Content-Type: application/json" \
   -H "x-api-key: your-api-key-here" \
   -d '{
@@ -680,15 +680,15 @@ Here's a complete sequence of commands to test the API:
 
 ```bash
 # 1. Register a new user
-curl -X POST http://localhost:3000/slack/users/U123456789/register \
+curl -X POST http://localhost:3005/slack/users/U123456789/register \
   -H "x-api-key: your-api-key-here"
 
 # 2. Verify user registration
-curl http://localhost:3000/slack/users/U123456789 \
+curl http://localhost:3005/slack/users/U123456789 \
   -H "x-api-key: your-api-key-here"
 
 # 3. Store a user message
-curl -X POST http://localhost:3000/slack/messages/U123456789 \
+curl -X POST http://localhost:3005/slack/messages/U123456789 \
   -H "Content-Type: application/json" \
   -H "x-api-key: your-api-key-here" \
   -d '{
@@ -701,7 +701,7 @@ curl -X POST http://localhost:3000/slack/messages/U123456789 \
   }'
 
 # 4. Store an assistant response
-curl -X POST http://localhost:3000/slack/messages/U123456789 \
+curl -X POST http://localhost:3005/slack/messages/U123456789 \
   -H "Content-Type: application/json" \
   -H "x-api-key: your-api-key-here" \
   -d '{
@@ -714,15 +714,15 @@ curl -X POST http://localhost:3000/slack/messages/U123456789 \
   }'
 
 # 5. Retrieve all messages
-curl http://localhost:3000/slack/messages/U123456789 \
+curl http://localhost:3005/slack/messages/U123456789 \
   -H "x-api-key: your-api-key-here"
 
 # 6. Generate a dashboard token
-curl -X POST http://localhost:3000/slack/token/U123456789 \
+curl -X POST http://localhost:3005/slack/token/U123456789 \
   -H "x-api-key: your-api-key-here"
 
 # 7. Connect GitHub
-curl -X POST http://localhost:3000/slack/github/U123456789/connect \
+curl -X POST http://localhost:3005/slack/github/U123456789/connect \
   -H "Content-Type: application/json" \
   -H "x-api-key: your-api-key-here" \
   -d '{
@@ -731,7 +731,7 @@ curl -X POST http://localhost:3000/slack/github/U123456789/connect \
   }'
 
 # 8. Store GitHub issue
-curl -X POST http://localhost:3000/slack/github/U123456789/issues \
+curl -X POST http://localhost:3005/slack/github/U123456789/issues \
   -H "Content-Type: application/json" \
   -H "x-api-key: your-api-key-here" \
   -d '{
@@ -744,7 +744,7 @@ curl -X POST http://localhost:3000/slack/github/U123456789/issues \
   }'
 
 # 9. Connect Asana
-curl -X POST http://localhost:3000/slack/asana/U123456789/connect \
+curl -X POST http://localhost:3005/slack/asana/U123456789/connect \
   -H "Content-Type: application/json" \
   -H "x-api-key: your-api-key-here" \
   -d '{
@@ -757,7 +757,7 @@ curl -X POST http://localhost:3000/slack/asana/U123456789/connect \
   }'
 
 # 10. Store Asana task
-curl -X POST http://localhost:3000/slack/asana/U123456789/tasks \
+curl -X POST http://localhost:3005/slack/asana/U123456789/tasks \
   -H "Content-Type: application/json" \
   -H "x-api-key: your-api-key-here" \
   -d '{
@@ -803,19 +803,19 @@ If the API key is missing or invalid, you'll receive a response like this:
 
 #### Register a new Slack user
 ```bash
-curl -X POST http://154.38.174.112:3000/slack/users/U123456789/register \
+curl -X POST http://154.38.174.112:3005/slack/users/U123456789/register \
   -H "x-api-key: your-api-key-here"
 ```
 
 #### Get user information
 ```bash
-curl http://154.38.174.112:3000/slack/users/U123456789 \
+curl http://154.38.174.112:3005/slack/users/U123456789 \
   -H "x-api-key: your-api-key-here"
 ```
 
 #### Store a chat message
 ```bash
-curl -X POST http://154.38.174.112:3000/slack/messages/U123456789 \
+curl -X POST http://154.38.174.112:3005/slack/messages/U123456789 \
   -H "Content-Type: application/json" \
   -H "x-api-key: your-api-key-here" \
   -d '{
@@ -848,7 +848,7 @@ Registers a new Slack user in the system.
 **Example:**
 ```bash
 # Register a new user with ID U123456789
-curl -X POST http://154.38.174.112:3000/slack/users/U123456789/register \
+curl -X POST http://154.38.174.112:3005/slack/users/U123456789/register \
   -H "x-api-key: your-api-key-here"
 ```
 
@@ -877,7 +877,7 @@ Retrieves information about a registered Slack user.
 **Example:**
 ```bash
 # Get information for user U123456789
-curl http://154.38.174.112:3000/slack/users/U123456789 \
+curl http://154.38.174.112:3005/slack/users/U123456789 \
   -H "x-api-key: your-api-key-here"
 ```
 
@@ -913,7 +913,7 @@ Retrieves all chat messages for a Slack user.
 **Example:**
 ```bash
 # Get all messages for user U123456789
-curl http://154.38.174.112:3000/slack/messages/U123456789 \
+curl http://154.38.174.112:3005/slack/messages/U123456789 \
   -H "x-api-key: your-api-key-here"
 ```
 
@@ -952,7 +952,7 @@ Stores a chat message in the system.
 **Example:**
 ```bash
 # Store a user message
-curl -X POST http://154.38.174.112:3000/slack/messages/U123456789 \
+curl -X POST http://154.38.174.112:3005/slack/messages/U123456789 \
   -H "Content-Type: application/json" \
   -H "x-api-key: your-api-key-here" \
   -d '{
@@ -965,7 +965,7 @@ curl -X POST http://154.38.174.112:3000/slack/messages/U123456789 \
   }'
 
 # Store an assistant message
-curl -X POST http://154.38.174.112:3000/slack/messages/U123456789 \
+curl -X POST http://154.38.174.112:3005/slack/messages/U123456789 \
   -H "Content-Type: application/json" \
   -H "x-api-key: your-api-key-here" \
   -d '{
@@ -1005,7 +1005,7 @@ Generates a dashboard token for a Slack user.
 **Example:**
 ```bash
 # Generate a token for user U123456789
-curl -X POST http://154.38.174.112:3000/slack/token/U123456789 \
+curl -X POST http://154.38.174.112:3005/slack/token/U123456789 \
   -H "x-api-key: your-api-key-here"
 ```
 
@@ -1046,7 +1046,7 @@ Stores a GitHub connection for a Slack user.
 
 **Example:**
 ```bash
-curl -X POST http://154.38.174.112:3000/slack/github/U123456789/connect \
+curl -X POST http://154.38.174.112:3005/slack/github/U123456789/connect \
   -H "Content-Type: application/json" \
   -H "x-api-key: your-api-key-here" \
   -d '{
@@ -1085,7 +1085,7 @@ Updates the selected GitHub repository for a Slack user.
 
 **Example:**
 ```bash
-curl -X POST http://154.38.174.112:3000/slack/github/U123456789/repo \
+curl -X POST http://154.38.174.112:3005/slack/github/U123456789/repo \
   -H "Content-Type: application/json" \
   -H "x-api-key: your-api-key-here" \
   -d '"owner/repo"'
@@ -1130,7 +1130,7 @@ Stores a GitHub issue for a Slack user.
 
 **Example:**
 ```bash
-curl -X POST http://154.38.174.112:3000/slack/github/U123456789/issues \
+curl -X POST http://154.38.174.112:3005/slack/github/U123456789/issues \
   -H "Content-Type: application/json" \
   -H "x-api-key: your-api-key-here" \
   -d '{
@@ -1184,7 +1184,7 @@ Stores an Asana connection for a Slack user.
 
 **Example:**
 ```bash
-curl -X POST http://154.38.174.112:3000/slack/asana/U123456789/connect \
+curl -X POST http://154.38.174.112:3005/slack/asana/U123456789/connect \
   -H "Content-Type: application/json" \
   -H "x-api-key: your-api-key-here" \
   -d '{
@@ -1238,7 +1238,7 @@ Stores an Asana task for a Slack user.
 
 **Example:**
 ```bash
-curl -X POST http://154.38.174.112:3000/slack/asana/U123456789/tasks \
+curl -X POST http://154.38.174.112:3005/slack/asana/U123456789/tasks \
   -H "Content-Type: application/json" \
   -H "x-api-key: your-api-key-here" \
   -d '{
@@ -1368,15 +1368,15 @@ Here's a complete sequence of commands to test the API:
 
 ```bash
 # 1. Register a new user
-curl -X POST http://154.38.174.112:3000/slack/users/U123456789/register \
+curl -X POST http://154.38.174.112:3005/slack/users/U123456789/register \
   -H "x-api-key: your-api-key-here"
 
 # 2. Verify user registration
-curl http://154.38.174.112:3000/slack/users/U123456789 \
+curl http://154.38.174.112:3005/slack/users/U123456789 \
   -H "x-api-key: your-api-key-here"
 
 # 3. Store a user message
-curl -X POST http://154.38.174.112:3000/slack/messages/U123456789 \
+curl -X POST http://154.38.174.112:3005/slack/messages/U123456789 \
   -H "Content-Type: application/json" \
   -H "x-api-key: your-api-key-here" \
   -d '{
@@ -1389,7 +1389,7 @@ curl -X POST http://154.38.174.112:3000/slack/messages/U123456789 \
   }'
 
 # 4. Store an assistant response
-curl -X POST http://154.38.174.112:3000/slack/messages/U123456789 \
+curl -X POST http://154.38.174.112:3005/slack/messages/U123456789 \
   -H "Content-Type: application/json" \
   -H "x-api-key: your-api-key-here" \
   -d '{
@@ -1402,15 +1402,15 @@ curl -X POST http://154.38.174.112:3000/slack/messages/U123456789 \
   }'
 
 # 5. Retrieve all messages
-curl http://154.38.174.112:3000/slack/messages/U123456789 \
+curl http://154.38.174.112:3005/slack/messages/U123456789 \
   -H "x-api-key: your-api-key-here"
 
 # 6. Generate a dashboard token
-curl -X POST http://154.38.174.112:3000/slack/token/U123456789 \
+curl -X POST http://154.38.174.112:3005/slack/token/U123456789 \
   -H "x-api-key: your-api-key-here"
 
 # 7. Connect GitHub
-curl -X POST http://154.38.174.112:3000/slack/github/U123456789/connect \
+curl -X POST http://154.38.174.112:3005/slack/github/U123456789/connect \
   -H "Content-Type: application/json" \
   -H "x-api-key: your-api-key-here" \
   -d '{
@@ -1419,7 +1419,7 @@ curl -X POST http://154.38.174.112:3000/slack/github/U123456789/connect \
   }'
 
 # 8. Store GitHub issue
-curl -X POST http://154.38.174.112:3000/slack/github/U123456789/issues \
+curl -X POST http://154.38.174.112:3005/slack/github/U123456789/issues \
   -H "Content-Type: application/json" \
   -H "x-api-key: your-api-key-here" \
   -d '{
@@ -1432,7 +1432,7 @@ curl -X POST http://154.38.174.112:3000/slack/github/U123456789/issues \
   }'
 
 # 9. Connect Asana
-curl -X POST http://154.38.174.112:3000/slack/asana/U123456789/connect \
+curl -X POST http://154.38.174.112:3005/slack/asana/U123456789/connect \
   -H "Content-Type: application/json" \
   -H "x-api-key: your-api-key-here" \
   -d '{
@@ -1445,7 +1445,7 @@ curl -X POST http://154.38.174.112:3000/slack/asana/U123456789/connect \
   }'
 
 # 10. Store Asana task
-curl -X POST http://154.38.174.112:3000/slack/asana/U123456789/tasks \
+curl -X POST http://154.38.174.112:3005/slack/asana/U123456789/tasks \
   -H "Content-Type: application/json" \
   -H "x-api-key: your-api-key-here" \
   -d '{
