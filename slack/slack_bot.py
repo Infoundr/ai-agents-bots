@@ -577,9 +577,9 @@ def serve_logo():
     return '', 404  
 
 if __name__ == "__main__":
-    ngrok_url = "https://slack.infoundr.com/slack/oauth_redirect"
+    url = "https://slack.infoundr.com/slack/oauth_redirect"
     logger.info(f"Starting Slack bot server on port 3000...")
-    logger.info(f"Public URL: {ngrok_url}")
+    logger.info(f"Public URL: {url}")
     
     # Create installations directory if it doesn't exist
     os.makedirs("./slack_installations", exist_ok=True)
