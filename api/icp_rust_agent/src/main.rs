@@ -387,8 +387,8 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         .layer(TraceLayer::new_for_http())
         .with_state(app_state);
     
-    // Run it with hyper on localhost:3000
-    let addr = SocketAddr::from(([0, 0, 0, 0], 3000));
+    // Run it with hyper on localhost:3005
+    let addr = SocketAddr::from(([0, 0, 0, 0], 3005));
     println!("Starting server on http://{}", addr);
     
     axum::serve(
