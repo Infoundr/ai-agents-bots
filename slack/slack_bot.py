@@ -1,3 +1,9 @@
+import os
+import sys
+
+# Add the parent directory to Python path
+sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+
 from slack_bolt import App
 from slack_bolt.adapter.socket_mode import SocketModeHandler
 from slack_bolt.oauth.oauth_settings import OAuthSettings
@@ -5,7 +11,7 @@ from slack_bolt.oauth.oauth_flow import OAuthFlow
 from slack_sdk.web import WebClient
 from slack_sdk.oauth.installation_store import FileInstallationStore
 from slack_sdk.oauth.installation_store.models.installation import Installation
-from core.agent_bots import BOTS
+from core import BOTS
 import os
 from dotenv import load_dotenv
 import ssl
