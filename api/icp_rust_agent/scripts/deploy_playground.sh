@@ -61,13 +61,22 @@ if [ ! -f "$ENV_FILE" ]; then
     touch "$ENV_FILE"
 fi
 
-# Update or add BASE_URL in .env file
+# Update or add BASE_URL and CANISTER_ID in .env file
 if grep -q "BASE_URL=" "$ENV_FILE"; then
     # Update existing BASE_URL
     sed -i '' "s|BASE_URL=.*|BASE_URL=https://$CANISTER_ID.icp0.io|" "$ENV_FILE"
 else
     # Add new BASE_URL
     echo "BASE_URL=https://$CANISTER_ID.icp0.io" >> "$ENV_FILE"
+fi
+
+# Update or add CANISTER_ID
+if grep -q "CANISTER_ID=" "$ENV_FILE"; then
+    # Update existing CANISTER_ID
+    sed -i '' "s|CANISTER_ID=.*|CANISTER_ID=$CANISTER_ID|" "$ENV_FILE"
+else
+    # Add new CANISTER_ID
+    echo "CANISTER_ID=$CANISTER_ID" >> "$ENV_FILE"
 fi
 
 # Return to the original directory
