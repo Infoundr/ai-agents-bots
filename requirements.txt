@@ -1,15 +1,23 @@
-langchain-core==0.3.35
+# Core packages
 openai==1.58.1
 python-dotenv==1.0.1
-asana==5.0.0
-langchain==0.3.18
-langchain-anthropic==0.3.6
+
+# LangChain ecosystem (all versions aligned and tested with Pydantic v2)
+langchain==0.3.22
+langchain-core==0.3.35
+langchain-openai==0.3.7
+langchain-anthropic==0.3.7
 langchain-community==0.3.16
-langchain-openai==0.3.6
-streamlit==1.36.0
-jira==3.6.0
+
+# Third-party integrations
 asana==5.0.0
+jira==3.6.0
 py-trello==0.20.0
 PyGithub==1.59.1
+
+# Slack
 slack-bolt>=1.23.0
 slack-sdk>=3.35.0
+
+# UI
+streamlit==1.36.0
