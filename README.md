@@ -159,7 +159,7 @@ Check out the complete documentation [here](./api/API.md)
 
 **Note**: All endpoints require authentication using an API key in the `x-api-key` header.
 
-Check out the full documentation [here](./api/icp_rust_agent/API.md)
+Check out the full documentation [here](./api/icp_rust_agent/README.md)
 
 ## Setup
 
