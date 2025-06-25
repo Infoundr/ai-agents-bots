@@ -144,7 +144,7 @@ sequenceDiagram
 Check out the complete documentation [here](./api/API.md)
 
 ### Storage API Service
-- **URL**: http://154.38.174.112:3000
+- **URL**: http://154.38.174.112:3005
 - **Purpose**: Data persistence and storage operations
 - **Endpoints**:
   - `/slack/users/:slack_id/register` - Register new Slack user
